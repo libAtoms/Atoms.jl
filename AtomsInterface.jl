@@ -80,17 +80,14 @@ end
 #     AbstractAtoms
 #######################################################################
 
-@doc doc"""`AbstractAtoms`: the abstract supertype for storing atomistic
+"""`AbstractAtoms`: the abstract supertype for storing atomistic
 configurations. A basic implementation might simply store a list of positions.
-
-See `abstractatoms.md` for a specification of this interface.
-"""->
+"""
 abstract AbstractAtoms
 
 
 # the following are all dummy method definitions that just throw an error if a
 # method hasn't been implemented
-
 
 "Return number of atoms"
 @protofun length(::AbstractAtoms)
@@ -229,9 +226,9 @@ length as dofs."""
 #######################################################################
 
 
-@doc doc"""`AbstractCalculator`: the abstract supertype of calculators. These
+"""`AbstractCalculator`: the abstract supertype of calculators. These
 store model information, and are linked to the implementation of energy, forces,
-and so forth.  """->
+and so forth.  """
 abstract AbstractCalculator
 
 # The following two functions are, in my view, superfluous for the
