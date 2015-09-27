@@ -6,6 +6,9 @@
 #
 #   * in all my julia codes I use self_interaction=false and bothways=true
 #      - is it a bad idea if I make these default?
+#
+#   * rcut in ASE denotes spheres of overlap?!?!? i.e. it is in effect
+#     half of the cut-off of the potential?
 #      
 
 
@@ -267,7 +270,8 @@ neighborhood. This is probably fairly inefficient to use since it has
 to construct a `PyArray` object for the positions every time it is called.
 Instead, use the iterator ***TODO***.
 """
-function get_neighbors(n::Integer, neiglist::ASENeighborList, atm::ASEAtoms)
+function get_neighbors(n::Integer, neiglist::ASENeighborList, atm::ASEAtoms;
+                       rcut=Inf)
     (inds, offsets) = ASE.neighbors(n, neiglist)
     # the next three lines are horrendously expensive !!!!!
     #     create links so they don't have to be reconstructed, or
@@ -280,10 +284,12 @@ function get_neighbors(n::Integer, neiglist::ASENeighborList, atm::ASEAtoms)
     # ----------
     r = X[inds, :]' + cell' * offsets' .- slice(X, n, :)
     s = sqrt(sumabs2(r, 1))
-    # now find the indices that are actually within the cut-off
-    I = find(s .< 3.0)      # hard-coded for debugging
-    # then return the relevant sub-arrays
-    return inds[I], s[I], r[:, I]
+    if rcut < Inf
+        I = find(s .<= rcut)
+        return inds[I], s[I], r[:, I]
+    else
+        return inds, s, r
+    end
 end
 
 
@@ -292,6 +298,7 @@ end
 # this is about twice as fast as `get_neighbours`
 # which indicates that, either, the ASE neighbour list is very slow
 #   or, the overhead from the python call is horrendous!
+#
 
 type ASEAtomIteratorState
     at::ASEAtoms
@@ -299,7 +306,7 @@ type ASEAtomIteratorState
     n::Int         # iteration index
     X::PyArray
     cutoffs::PyArray
-    cell_t:Matrix{Float64}
+    cell_t::Matrix{Float64}
 end
 
 ASEAtomIteratorState(at::ASEAtoms, neiglist::ASENeighborList) =
@@ -320,12 +327,14 @@ import Base.next
 function next(I::Tuple{ASEAtoms,ASENeighborList}, state::ASEAtomIteratorState)
     state.n += 1
     (inds, offsets) = neighbors(state.n, state.neiglist)
-indices, offset = neiglist.po[:get_neighbors](n-1)
+    # indices, offset = state.neiglist.po[:get_neighbors](n-1)
     r = state.X[inds, :]' + state.cell_t * offsets' .- slice(state.X, state.n, :)
     s = sqrt(sumabs2(r, 1))
+    return (state.n, inds, s, r), state
     # now find the indices that are actually within the cut-off
-    I = find(s .< 3.0)   # state.cutoffs[state.n])  (hard-coded for debugging)
-    return (state.n, inds[I], s[I], r[:,I]), state
+    #  TODO: resolve the nasty issue of 1/2 cut-off first?!?!?
+    # I = find(s .< 3.0)   # state.cutoffs[state.n])  (hard-coded for debugging)
+    # return (state.n, inds[I], s[I], r[:,I]), state
 end
 
 
