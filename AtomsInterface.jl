@@ -1,4 +1,13 @@
 
+"""
+Add Documentation for `AtomsInterface`; at the moment just a collection of 
+notes.
+
+* Position arrays in `Atoms.jl` should always be 3 x N and modules ought 
+   to convert automatically
+* 
+
+"""
 module AtomsInterface
 
 
@@ -7,10 +16,11 @@ export AbstractAtoms,
        get_positions,
        set_positions!,
        ddim,
-       rdim
+       rdim,
+       get_neighbours,
+       set_neighbours!
 
 
-import Base.length, Base.getindex, Base.setindex!
 
 
 # Lexicon.update! is something that many users will have installed, 
@@ -20,12 +30,12 @@ catch
     nothing
 end
 
-# the following macro generates "function defaults" which throw an error
-# message with a little extra information in case a certain function
-# has not been implemented. This is in some way duplicating default Julia
-# behaviour, but it has the advantage that we can write documention for
-# non-existing functions and it also emphasizes that this specific function
-# is part of the abstract atoms interface.
+# the following macro generates "function defaults" which throw an error message
+# with a little extra information in case a certain function has not been
+# implemented. This is in some way duplicating default Julia behaviour, but it
+# has the advantage that we can write documention for non-existing functions and
+# it also emphasizes that this specific function is part of the abstract atoms
+# interface.
 
 ##### This is an old version of the macro, for Julia 0.3
 # macro protofun(fname, argtypes...)
@@ -89,17 +99,26 @@ abstract AbstractAtoms
 # the following are all dummy method definitions that just throw an error if a
 # method hasn't been implemented
 
+import Base.length
+
 "Return number of atoms"
 @protofun length(::AbstractAtoms)
 
+import Base.getindex
+
 "Return position(s) of atom(s) `i`"
 @protofun getindex(::AbstractAtoms, i)
+
+import Base.setindex!
 
 "Set position(s) of atom(s) `i`"
 @protofun setindex!(::AbstractAtoms, x, i)
 
 "Return reference to positions of all atoms as a `d x N` array."
 @protofun get_positions(::AbstractAtoms)
+
+"alias for `get_positions`"
+positions(a::AbstractAtoms) = get_positions(a)
 
 "Set positions of all atoms as a `d x N` array."
 @protofun set_positions!(::AbstractAtoms, ::Any)
@@ -109,7 +128,6 @@ abstract AbstractAtoms
 
 "Return range dimension."
 @protofun rdim(::AbstractAtoms)
-
 
 
 
@@ -128,17 +146,21 @@ number of atoms and d the space dimension in which the atoms live, normally
 d = 3.  With this guaranteed, much of the functionality of the 
 `AbstractAtoms` interface can already be implemented.
 """ 
-abstract AbstractAtomsX
+abstract AbstractAtomsX <: AbstractAtoms
 
 # note: this is not part of the interface, but I am finding it very useful
 # maybe it could be included in the general interface as well?
+#   note the default for update!(atm::AbstractAtomsX, i) is that
+#   the "update-all" version is called, but this can be overloaded to
+#   prevent that.
 "Tell the 'listeners' that the atom configuration has changed."
 update!(atm::AbstractAtomsX) = nothing
+update!(atm::AbstractAtomsX, i::Integer) = update!(atm::AbstractAtomsX)
 
 # implementations of the standard interface
 length(atm::AbstractAtomsX) = size(atm.X, 2)
 getindex(atm::AbstractAtomsX, i) = atm.X[:, i]
-setindex!(atm::AbstractAtomsX, x, i) = begin atm.X[:, i] = x; update!(atm); end
+setindex!(atm::AbstractAtomsX, x, i) = begin atm.X[:, i] = x; update!(atm, i); end
 get_positions(atm::AbstractAtomsX) = atm.X
 set_positions!(atm::AbstractAtomsX, X) = begin atm.X = X; update!(atm) end
 ddim(atm::AbstractAtomsX) = size(atm.X, 1)
@@ -154,16 +176,20 @@ rdim(atm::AbstractAtomsX) = size(atm.X, 1)
 abstract AbstractNeighbourList
 
 
-# each atoms object should probably have a neighbourlist attached even
-# if it is just a trivial "all atoms are neighbours" thing
-"Return the neighbourlist attached to the atoms object."
-@protofun get_neiglist(::AbstractAtoms)
+##### for now, we don't attach neighbourlist to atoms,
+##### so I just comment these out for now.
+############################################################
+# # each atoms object should probably have a neighbourlist attached even
+# # if it is just a trivial "all atoms are neighbours" thing
+# "Return the neighbourlist attached to the atoms object."
+# @protofun get_neighbourlist(::AbstractAtoms)
+# "alias for `get_neighbourlist`"
+# neighbourlist(a::AbstractAtoms) = get_neighbourlist(a)
+# "attach a neighbourlist to an atoms object"
+# @protofun set_neighbourlist!(::AbstractAtoms, ::AbstractNeighbourList)
 
-"attach a neighbourlist to an atoms object"
-@protofun set_neiglist!(::AbstractAtoms, ::AbstractNeighbourList)
-
-"tells the neighbourlist that the atoms object has changed"
-update!(::AbstractAtoms, ::AbstractNeighbourList) = nothing
+"tell the neighbourlist that the atoms object has changed"
+@protofun update!(::AbstractNeighbourList, ::AbstractAtoms)
 
 """`get_neigs(n, a; rcut==-1) -> Ineig, r`: returns a list of
 indices of neighbours of `n` and distances `r`. if rcut == -1 (default), then
@@ -173,17 +199,24 @@ If rcut > nlist.rcut, then an error is thrown.
 (Note that `r` is computed anyhow, so it is passed by default; it can be
 discarded if not needed.)
 """
-get_neigs(n, atm::AbstractAtoms; rcut=-1) =
-    get_neigs(n, get_nlist(atm), atm; rcut=-1)
+get_neighbours(n, atm::AbstractAtoms; rcut=-1) =
+    get_neighbours(n, neighbourlist(atm), atm; rcut=-1)
+
+"alias for `get_neighbours`"
+neighbours(n, atm::AbstractAtoms; rcut=-1) = get_neighbours(n, atm; rcut=rcut)
+
 
 # DISCUSS: maybe it would be useful to also return the list of
-#          direction-vectors? It was probably computes anyhow
+#          direction-vectors? It was probably computed anyhow?
 
 """Returns `(Ineig, r)` where `Ineig is an integer vector with indices 
-of neighbour atoms of `n` and r the a Float vector with their distances."""
-@protofun get_neigs(n::Integer, neigs::AbstractNeighbourList,
-                    atm::AbstractAtoms; rcut=-1)
+of neighbour atoms of `n` and r the a Float vector with their distances.""" 
+@protofun get_neighbours(n::Integer, neigs::AbstractNeighbourList,
+                         atm::AbstractAtoms; rcut=-1)
 
+neighbours(n::Integer, neigs::AbstractNeighbourList,
+           atm::AbstractAtoms; rcut=-1) =
+               get_neighbours(n, neigs, atm; rcut=rcut)
 
 
 #######################################################################
@@ -218,7 +251,7 @@ get_dofs(atm::AbstractAtoms) = get_dofs(atm, get_constraints(atm))
 """Takes a \"dual\" array (rdim x lenght) and applies the dual constraints
 to obtain effective forces acting on dofs. Returns a vector of the same
 length as dofs."""
-@protofun forces_to_dofs(Matrix{T <: FloatingPoint}, con::AbstractConstraints)
+@protofun forces_to_dofs{T <: AbstractFloat}(f::Matrix{T}, con::AbstractConstraints)
 
 
 #######################################################################
