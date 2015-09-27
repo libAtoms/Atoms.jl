@@ -1,7 +1,7 @@
 
-module grid
+module grids
 
-export ndgrid, ndgrd_fill, meshgrid, dgrid, dgrid_list
+#export ndgrid, ndgrd_fill, meshgrid, dgrid, dgrid_list
 
 #
 #
