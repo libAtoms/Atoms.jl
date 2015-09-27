@@ -44,7 +44,19 @@ using PyCall
 
 """`type ASEAtoms <: AbstractAtoms`
 
-Julia wrapper for the ASE `Atoms` class"""
+Julia wrapper for the ASE `Atoms` class
+
+If `at` is of type `ASEAtoms` and `nlist` of type `ASENeighbourList` then 
+iterate over atoms using the following syntax
+```
+for (n, inds, s, r) in (at, nlist)
+    # n : index of current atom
+    # inds : indices of neighbours
+    # s : distances of neighbours
+    # r : relative position vectors of neighbours
+end
+```
+"""
 type ASEAtoms <: AbstractAtoms
     po::PyObject      # ase.Atoms instance
 end
@@ -244,9 +256,13 @@ neighbors = get_neighbors
 
 
 """`get_neighbors(n::Integer, neiglist::ASENeighborList, atm::ASEAtoms)
-              -> (indices::Vector{Int}, r::Vector{Float64})
+              -> (indices::Vector{Int}, s::Vector{Float64}, r::Matrix{Float64})`
 
-Convenience function that does some of the work of constructing the 
+ * `indices`: indices of atom positions
+ * `s`: scalar distances of neighbours
+ * `r`: relative positions of neighbours (vectorial dist)
+
+This is a convenience function that does some of the work of constructing the 
 neighborhood. This is probably fairly inefficient to use since it has 
 to construct a `PyArray` object for the positions every time it is called.
 Instead, use the iterator ***TODO***.
@@ -258,22 +274,59 @@ function get_neighbors(n::Integer, neiglist::ASENeighborList, atm::ASEAtoms)
     #     an iterator; makes you wonder though how much in the first line
     #     is also cost due to conversion?!
     # ----------
-    X = ASE._get_positions_ref_(atm)
+    X = _get_positions_ref_(atm)
     cutoffs = _get_cutoffs_ref_(neiglist)
     cell = get_cell(atm)
     # ----------
     r = X[inds, :]' + cell' * offsets' .- slice(X, n, :)
     s = sqrt(sumabs2(r, 1))
     # now find the indices that are actually within the cut-off
-    I = find(s .< 2.9)
+    I = find(s .< 3.0)      # hard-coded for debugging
     # then return the relevant sub-arrays
     return inds[I], s[I], r[:, I]
 end
 
 
 
+##################### NEIGHBOURHOOD ITERATOR ###################
+# this is about twice as fast as `get_neighbours`
+# which indicates that, either, the ASE neighbour list is very slow
+#   or, the overhead from the python call is horrendous!
 
+type ASEAtomIteratorState
+    at::ASEAtoms
+    neiglist::ASENeighborList
+    n::Int         # iteration index
+    X::PyArray
+    cutoffs::PyArray
+    cell_t:Matrix{Float64}
+end
 
+ASEAtomIteratorState(at::ASEAtoms, neiglist::ASENeighborList) =
+    ASEAtomIteratorState( at, neiglist, 0,
+                          _get_positions_ref_(at),
+                          _get_cutoffs_ref_(neiglist),
+                          get_cell(at)' )
+
+import Base.start
+start(I::Tuple{ASEAtoms,ASENeighborList}) =
+    ASEAtomIteratorState(I...)
+
+import Base.done
+done(I::Tuple{ASEAtoms,ASENeighborList}, state::ASEAtomIteratorState) =
+    (state.n == length(state.at))
+
+import Base.next
+function next(I::Tuple{ASEAtoms,ASENeighborList}, state::ASEAtomIteratorState)
+    state.n += 1
+    (inds, offsets) = neighbors(state.n, state.neiglist)
+indices, offset = neiglist.po[:get_neighbors](n-1)
+    r = state.X[inds, :]' + state.cell_t * offsets' .- slice(state.X, state.n, :)
+    s = sqrt(sumabs2(r, 1))
+    # now find the indices that are actually within the cut-off
+    I = find(s .< 3.0)   # state.cutoffs[state.n])  (hard-coded for debugging)
+    return (state.n, inds[I], s[I], r[:,I]), state
+end
 
 
 end
