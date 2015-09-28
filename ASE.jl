@@ -13,11 +13,14 @@
 
 
 """
-# module ASE
+## module ASE
 
-## Summary
+### Summary
 
-Provides Julia wrappers for some of ASE's functionality.
+Provides Julia wrappers for some of ASE's functionality. Currently:
+
+* `ase.Atoms` becomes `ASEAtoms`
+* `ase.calculators.neighborlist.NeighborList` becomes `ASENeighborList`
 
 todo: write more documentation
 """
@@ -45,7 +48,7 @@ using PyCall
 ################################################################
 
 
-"""`type ASEAtoms <: AbstractAtoms`
+"""### `type ASEAtoms <: AbstractAtoms`
 
 Julia wrapper for the ASE `Atoms` class
 
@@ -175,13 +178,14 @@ _get_positions_ref_(atm::ASEAtoms) =
 ############################################################
 
 
-"""`type ASENeighborList <: AbstractNeighborList`
+"""### type ASENeighborList <: AbstractNeighborList
 
 This makes available the functionality of the ASE neighborlist implementation.
 The neighborlist itself is actually stored in `ASEAtoms.po`, but 
 attaching and `ASENeighborList` will indicate this.
 
-Keyword arguments:
+#### Keyword arguments:
+
  * skin = 0.3
  * sorted
  * self_interaction
@@ -189,11 +193,12 @@ Keyword arguments:
 """
 type ASENeighborList #  <: AbstractNeighborList
     po::PyObject
+    cutoffs::Vector{Float64}
 end
 
-# default constructor from a list of cut-offs
-ASENeighborList(cutoffs::Vector{Float64}; kwargs...) =
-    ASENeighborList(ase_neiglist.NeighborList(cutoffs; kwargs...))
+# # default constructor from a list of cut-offs
+# ASENeighborList(cutoffs::Vector{Float64}; kwargs...) =
+#     ASENeighborList(ase_neiglist.NeighborList(cutoffs; kwargs...))
 
 # constructor from an ASEAtoms object, with a single cut-off
 # this generates a list of cut-offs, then the neighborulist, then
@@ -203,16 +208,20 @@ ASENeighborList(atm::ASEAtoms, cutoff::Float64; kwargs...) =
 
 # constructor from an ASEAtoms object, with multiple cutoffs
 # this also builds the neighborlist
-function ASENeighborList(atm::ASEAtoms, cutoffs::Vector{Float64}; kwargs...) 
-    nlist = ASENeighborList(cutoffs; kwargs...)
+function ASENeighborList(atm::ASEAtoms, cutoffs::Vector{Float64};
+                         bothways=true, self_interaction=false, kwargs...)
+    po = ase_neiglist.NeighborList(cutoffs * 0.5;
+                                   bothways=bothways,
+                                   self_interaction=self_interaction,
+                                   kwargs...)
+    nlist = ASENeighborList(po, cutoffs)
     update!(nlist, atm)
     return nlist
 end
 
-# regain the cutoffs vector
-_get_cutoffs_ref_(nlist::ASENeighborList) =
-    PyArray(nlist.po["cutoffs"])
-
+# # regain the cutoffs vector
+# _get_cutoffs_ref_(nlist::ASENeighborList) =
+#     PyArray(nlist.po["cutoffs"])
 
 
 """`update!(nlist::ASENeighborList, atm::ASEAtoms)`
@@ -268,28 +277,18 @@ neighbors = get_neighbors
 This is a convenience function that does some of the work of constructing the 
 neighborhood. This is probably fairly inefficient to use since it has 
 to construct a `PyArray` object for the positions every time it is called.
-Instead, use the iterator ***TODO***.
+Instead, use the iterator. Problem is, this is not much faster, because
+the PyCall conversion overhead is so horrendous.
 """
 function get_neighbors(n::Integer, neiglist::ASENeighborList, atm::ASEAtoms;
                        rcut=Inf)
     (inds, offsets) = ASE.neighbors(n, neiglist)
-    # the next three lines are horrendously expensive !!!!!
-    #     create links so they don't have to be reconstructed, or
-    #     an iterator; makes you wonder though how much in the first line
-    #     is also cost due to conversion?!
-    # ----------
     X = _get_positions_ref_(atm)
-    cutoffs = _get_cutoffs_ref_(neiglist)
     cell = get_cell(atm)
-    # ----------
     r = X[inds, :]' + cell' * offsets' .- slice(X, n, :)
     s = sqrt(sumabs2(r, 1))
-    if rcut < Inf
-        I = find(s .<= rcut)
-        return inds[I], s[I], r[:, I]
-    else
-        return inds, s, r
-    end
+    I = find(s .<= neiglist.cutoffs[n])
+    return inds[I], s[I], r[:, I]
 end
 
 
@@ -304,15 +303,13 @@ type ASEAtomIteratorState
     at::ASEAtoms
     neiglist::ASENeighborList
     n::Int         # iteration index
-    X::PyArray
-    cutoffs::PyArray
+    X::Matrix{Float64}
     cell_t::Matrix{Float64}
 end
 
 ASEAtomIteratorState(at::ASEAtoms, neiglist::ASENeighborList) =
     ASEAtomIteratorState( at, neiglist, 0,
-                          _get_positions_ref_(at),
-                          _get_cutoffs_ref_(neiglist),
+                          get_positions(at),
                           get_cell(at)' )
 
 import Base.start
@@ -326,16 +323,17 @@ done(I::Tuple{ASEAtoms,ASENeighborList}, state::ASEAtomIteratorState) =
 import Base.next
 function next(I::Tuple{ASEAtoms,ASENeighborList}, state::ASEAtomIteratorState)
     state.n += 1
-    (inds, offsets) = neighbors(state.n, state.neiglist)
-    # indices, offset = state.neiglist.po[:get_neighbors](n-1)
-    r = state.X[inds, :]' + state.cell_t * offsets' .- slice(state.X, state.n, :)
+    inds, offsets = neighbors(state.n, state.neiglist)
+    r = state.X[:,inds] + state.cell_t * offsets' .- state.X[:,state.n]
     s = sqrt(sumabs2(r, 1))
+    I = find(s .<= I[2].cutoffs[state.n])
     return (state.n, inds, s, r), state
     # now find the indices that are actually within the cut-off
     #  TODO: resolve the nasty issue of 1/2 cut-off first?!?!?
     # I = find(s .< 3.0)   # state.cutoffs[state.n])  (hard-coded for debugging)
     # return (state.n, inds[I], s[I], r[:,I]), state
 end
+
 
 
 end
