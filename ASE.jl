@@ -29,7 +29,7 @@ module ASE
 using AtomsInterface
 importall AtomsInterface
 
-export ASEAtoms
+export ASEAtoms, pyobject
 export convert, get_array, set_array!, get_positions, set_positions!, positions
 export get_cell, set_cell!
 export set_calculator, get_forces, get_potential_energy, get_stress
