@@ -15,7 +15,7 @@ ASE.
 """
 module MatSciPy
 
-using ASE, PyCall
+using ASE, PyCall, Potentials
 @pyimport matscipy.neighbours as matscipy_neighbours
 
 export update!, Sites, NeighbourList
@@ -184,8 +184,10 @@ function next(::Sites, state::AtomIteratorState)
     state.n += 1
     m0 = state.m
     i = state.neiglist.Q['i']
+    len_i = length(i)
     while i[state.m+1] <= state.n
         state.m += 1
+        if state.m == len_i; break; end
     end
     if m0 == state.m
         return (state.n, [], [], []), state
@@ -202,8 +204,10 @@ function next(::Sites, state::AtomIteratorState)
 end
 
 
+###########################################################################
+## Some Calculators Optimised for use with MatSciPy.NeighbourList 
+###########################################################################
+
+
+
 end
-
-
-
-

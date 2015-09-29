@@ -35,7 +35,7 @@ export get_cell, set_cell!
 export set_calculator, get_forces, get_potential_energy, get_stress
 export repeat, bulk, length
 export ASENeighborList, get_neighbors, neighbors
-export get_cell, cell
+export get_cell, cell, set_pbc!
 
 
 using PyCall
@@ -111,6 +111,11 @@ set_cell!(a::ASEAtoms, p::Array{Float64,2}) = a.po[:set_cell](p)
 import Base.length
 length(a::ASEAtoms) = a.po[:get_number_of_atoms]()
 
+"""`set_pbc!(a::ASEAtoms, val::Vector{Bool})`
+
+Set the periodic boundary conditions; `val` is a 3-dimensional vector.
+"""
+set_pbc!(a::ASEAtoms, val) = (a.po[:bpc] = val)
 
 """`get_cell(at::ASEAtoms) = at.po[:get_cell]() -> Matrix`
 
