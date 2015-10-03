@@ -10,13 +10,12 @@ notes.
 """
 module AtomsInterface
 
+using Prototypes
 
 export AbstractAtoms,
        AbstractAtomsX,
        get_positions,
        set_positions!,
-       ddim,
-       rdim,
        get_neighbours,
        set_neighbours!
 
@@ -30,60 +29,6 @@ catch
     nothing
 end
 
-# the following macro generates "function defaults" which throw an error message
-# with a little extra information in case a certain function has not been
-# implemented. This is in some way duplicating default Julia behaviour, but it
-# has the advantage that we can write documention for non-existing functions and
-# it also emphasizes that this specific function is part of the abstract atoms
-# interface.
-
-##### This is an old version of the macro, for Julia 0.3
-# macro protofun(fname, argtypes...)
-#     docstr = argtypes[end]
-#     argtypes = argtypes[1:end-1]
-#     str = "@doc doc\"$(docstr)\"->\nfunction $(fname)("
-#     for n = 1:length(argtypes)
-#         str *= string("arg", n, argtypes[n], ", ")
-#     end
-#     str = str[1:end-2]
-#     str *= ") \n"
-#     str *= "    error(string(\"AtomsInterface: `$(string(fname))(\", "
-#     for n = 1:length(argtypes)
-#         str *= string("\"::\", typeof(arg", n, ")")
-#         if n < length(argtypes)
-#             str *= ", \", \", "
-#         end
-#     end
-#     str *= ", \")' has no implementation.\"))\nend"
-#     eval(parse(str))            
-# end
-
-macro protofun(fsig::Expr)
-    @assert fsig.head == :call 
-    fname = fsig.args[1] 
-    argnames = Any[] 
-    for idx in 2:length(fsig.args) 
-        arg = fsig.args[idx] 
-        if isa(arg, Expr) && arg.head == :kw 
-            arg = arg.args[1] 
-        end 
-        if isa(arg, Symbol) 
-            push!(argnames, arg) 
-        elseif isa(arg, Expr) && arg.head == :(::) 
-            if length(arg.args) != 2 
-                @gensym s 
-                insert!(arg.args, 1, s) 
-            end 
-            push!(argnames, arg.args[1]) 
-        end 
-    end 
-    body = quote 
-        error(string("AtomsInterface: ", $fname, 
-                     ($([:(typeof($(esc(arg)))) for arg in argnames]...),),
-                     " ) has no implementation.") ) 
-    end 
-    Expr(:function, esc(fsig), body)
-end
 
 
 #######################################################################
@@ -114,57 +59,51 @@ import Base.setindex!
 "Set position(s) of atom(s) `i`"
 @protofun setindex!(::AbstractAtoms, x, i)
 
-"Return reference to positions of all atoms as a `d x N` array."
+"Return reference to positions of all atoms as a `3 x N` array."
 @protofun get_positions(::AbstractAtoms)
 
 "alias for `get_positions`"
 positions(a::AbstractAtoms) = get_positions(a)
 
-"Set positions of all atoms as a `d x N` array."
+"Set positions of all atoms as a `3 x N` array."
 @protofun set_positions!(::AbstractAtoms, ::Any)
 
-"Return domain dimension."
-@protofun ddim(::AbstractAtoms)
-
-"Return range dimension."
-@protofun rdim(::AbstractAtoms)
 
 
 
+# #######################################################################
+# #     AbstractAtomsX
+# # a still abstract implementation of much of the functionality
+# # of AbstractAtoms, assuming that atom positions are just standard
+# # vectors and are stored in a field .X
+# #######################################################################
 
-#######################################################################
-#     AbstractAtomsX
-# a still abstract implementation of much of the functionality
-# of AbstractAtoms, assuming that atom positions are just standard
-# vectors and are stored in a field .X
-#######################################################################
 
+# """`AbstractAtomsX`: implementations of this abstract sub-type
+# *must* have a field `.X`, with d rows and nX columns, where nX is the
+# number of atoms and d the space dimension in which the atoms live, normally
+# d = 3.  With this guaranteed, much of the functionality of the 
+# `AbstractAtoms` interface can already be implemented.
+# """ 
+# abstract AbstractAtomsX <: AbstractAtoms
 
-"""`AbstractAtomsX`: implementations of this abstract sub-type
-*must* have a field `.X`, with d rows and nX columns, where nX is the
-number of atoms and d the space dimension in which the atoms live, normally
-d = 3.  With this guaranteed, much of the functionality of the 
-`AbstractAtoms` interface can already be implemented.
-""" 
-abstract AbstractAtomsX <: AbstractAtoms
+# # note: this is not part of the interface, but I am finding it very useful
+# # maybe it could be included in the general interface as well?
+# #   note the default for update!(atm::AbstractAtomsX, i) is that
+# #   the "update-all" version is called, but this can be overloaded to
+# #   prevent that.
+# "Tell the 'listeners' that the atom configuration has changed."
+# update!(atm::AbstractAtomsX) = nothing
+# update!(atm::AbstractAtomsX, i::Integer) = update!(atm::AbstractAtomsX)
 
-# note: this is not part of the interface, but I am finding it very useful
-# maybe it could be included in the general interface as well?
-#   note the default for update!(atm::AbstractAtomsX, i) is that
-#   the "update-all" version is called, but this can be overloaded to
-#   prevent that.
-"Tell the 'listeners' that the atom configuration has changed."
-update!(atm::AbstractAtomsX) = nothing
-update!(atm::AbstractAtomsX, i::Integer) = update!(atm::AbstractAtomsX)
-
-# implementations of the standard interface
-length(atm::AbstractAtomsX) = size(atm.X, 2)
-getindex(atm::AbstractAtomsX, i) = atm.X[:, i]
-setindex!(atm::AbstractAtomsX, x, i) = begin atm.X[:, i] = x; update!(atm, i); end
-get_positions(atm::AbstractAtomsX) = atm.X
-set_positions!(atm::AbstractAtomsX, X) = begin atm.X = X; update!(atm) end
-ddim(atm::AbstractAtomsX) = size(atm.X, 1)
-rdim(atm::AbstractAtomsX) = size(atm.X, 1)
+# # implementations of the standard interface
+# length(atm::AbstractAtomsX) = size(atm.X, 2)
+# getindex(atm::AbstractAtomsX, i) = atm.X[:, i]
+# setindex!(atm::AbstractAtomsX, x, i) = begin atm.X[:, i] = x; update!(atm, i); end
+# get_positions(atm::AbstractAtomsX) = atm.X
+# set_positions!(atm::AbstractAtomsX, X) = begin atm.X = X; update!(atm) end
+# ddim(atm::AbstractAtomsX) = size(atm.X, 1)
+# rdim(atm::AbstractAtomsX) = size(atm.X, 1)
 
 
 

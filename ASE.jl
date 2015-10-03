@@ -105,8 +105,6 @@ that ASE expects.
 """
 set_positions!(a::ASEAtoms, p::Array{Float64, 2}) = a.po[:set_positions](p')
 
-get_cell(a::ASEAtoms) = a.po[:get_cell]()
-set_cell!(a::ASEAtoms, p::Array{Float64,2}) = a.po[:set_cell](p)
 
 import Base.length
 length(a::ASEAtoms) = a.po[:get_number_of_atoms]()
@@ -117,14 +115,21 @@ Set the periodic boundary conditions; `val` is a 3-dimensional vector.
 """
 set_pbc!(a::ASEAtoms, val) = (a.po[:bpc] = val)
 
+import Base.cell
 """`get_cell(at::ASEAtoms) = at.po[:get_cell]() -> Matrix`
 
 Alas for `ase.Atoms.get_cell()`; returns a matrix describing the computational
 cell.
 """
 get_cell(at::ASEAtoms) = at.po[:get_cell]()
-"alias for get_cell"
-cell = get_cell
+"alias for `get_cell`"
+cell(a::ASEAtoms) = get_cell(a::ASEAtoms)
+
+"counterpart for `get_cell` (not tested?)"
+set_cell!(a::ASEAtoms, p::Array{Float64,2}) = a.po[:set_cell](p)
+
+
+
 
 
 # TODO: tie in properly with AtomsInterface
@@ -132,6 +137,8 @@ set_calculator!(a::ASEAtoms, calculator::PyObject) = a.po[:set_calculator](calcu
 get_forces(a::ASEAtoms) = a.po[:get_forces]()
 get_potential_energy(a::ASEAtoms) = a.po[:get_potential_energy]()
 get_stress(a::ASEAtoms) = a.po[:get_stress]()
+
+
 
 
 
