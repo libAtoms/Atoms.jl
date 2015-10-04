@@ -130,8 +130,6 @@ set_cell!(a::ASEAtoms, p::Array{Float64,2}) = a.po[:set_cell](p)
 
 
 
-
-
 # TODO: tie in properly with AtomsInterface
 set_calculator!(a::ASEAtoms, calculator::PyObject) = a.po[:set_calculator](calculator)
 get_forces(a::ASEAtoms) = a.po[:get_forces]()

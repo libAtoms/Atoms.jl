@@ -13,11 +13,11 @@ module AtomsInterface
 using Prototypes
 
 export AbstractAtoms,
-       AbstractAtomsX,
        get_positions,
        set_positions!,
        get_neighbours,
-       set_neighbours!
+       set_neighbours!,
+       AbstractCalculator
 
 
 

@@ -16,24 +16,28 @@ ASE.
 """
 module MatSciPy
 
-using ASE, PyCall, Potentials
+using ASE, PyCall, Potentials, AtomsInterface
 @pyimport matscipy.neighbours as matscipy_neighbours
 
-# import some faster exponential for fast potential assembly
-try
-    import AppleAccelerate
-    function _fast_exponential(Lc, Rc, r) 
-        c2 = Rc-r
-        AppleAccelerate.rec!(c2, c2)
-        c2 = Lc * c2
-        AppleAccelerate.exp!(c2, c2)
-        return c2
-    end
-catch
-    _fast_exponential(Lc, Rc, r) = exp( Lc ./ (Rc - r) )
-end
 
-export update!, Sites, NeighbourList
+
+# # import some faster exponential for fast potential assembly
+# try
+#     import AppleAccelerate
+#     function _fast_exponential(Lc, Rc, r) 
+#         c2 = Rc-r
+#         AppleAccelerate.rec!(c2, c2)
+#         c2 = Lc * c2
+#         AppleAccelerate.exp!(c2, c2)
+#         return c2
+#     end
+# catch
+#     _fast_exponential(Lc, Rc, r) = exp( Lc ./ (Rc - r) )
+# end
+
+
+export update!, Sites, NeighbourList, potential_energy, potential_energy_d
+export cutoff
 
 
 """
@@ -230,7 +234,7 @@ end
 `binsum`, which still needs to be written! Here, it is assumed that
 `size(A, 1) = 3`, and  only summation along the second dimension is allowed.
 """
-function simple_binsum{TI <: Integer, TF <: Floatingpoint}(i::Vector{TI},
+function simple_binsum{TI <: Integer, TF <: AbstractFloat}(i::Vector{TI},
                                                            A::Matrix{TF})
     if size(A, 1) != 3
         error("simple_binsum: need size(A,1) = 3")
@@ -238,13 +242,13 @@ function simple_binsum{TI <: Integer, TF <: Floatingpoint}(i::Vector{TI},
     if size(A, 2) != length(i)
         error("simple_binsum: need size(A,2) = length(i)")
     end
-    
-    B = zeros(TF, (size(A, 1), maximum(i)))
+    B = zeros(TF, 3, maximum(i))
     for m = 1:size(A,1)
         @inbounds @simd for n = 1:length(i)
             B[m, i[n]] = B[m,i[n]] + A[m, n]
         end
     end
+    return B
 end
 
 
@@ -264,20 +268,20 @@ type PairCalculator <: AbstractCalculator
     pp::PairPotential
 end
 
+import Potentials.cutoff
 cutoff(calc::PairCalculator) = cutoff(calc.pp)
 
 function potential_energy(at::ASEAtoms, calc::PairCalculator)
-    r = neighbour_list(at, "d", cutoff(calc))
+    _, r = neighbour_list(at, "id", cutoff(calc))
     return sum( calc.pp(r) )
 end
 
 function potential_energy_d(at::ASEAtoms, calc::PairCalculator)
-    i, R = neighbour_list(at, "iD", cutoff(calc))
-    return -2.0 * binsum(i, @GRAD calc.pp(R))
+    i, r, R = neighbour_list(at, "idD", cutoff(calc))
+    return - 2.0 * simple_binsum(i, @GRAD calc.pp(r, R'))
 end
 
-forces(at::ASEAtoms, calc::PairCalculator) = - grad_energy(at, calc)
-
+forces(at::ASEAtoms, calc::PairCalculator) = - potential_energy_d(at, calc)
 
 
 

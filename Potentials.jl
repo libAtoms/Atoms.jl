@@ -20,8 +20,8 @@ using Prototypes
 export PairPotential, ScalarFunction
 export LennardJonesPotential, SWCutoff
 export SimpleExponential, GuptaEmbed, GuptaPotential
-export evaluate, evaluate_d, evaluate_dd, @D, @DD
-export call
+export evaluate, evaluate_d, evaluate_dd, @D, @DD, @GRAD, grad
+export call, cutoff
     
 _eps_ = eps()
 _eps2_ = 1e2
@@ -78,7 +78,7 @@ if `r = sqrt(sumabs2(R, 1))` is already available, then calling
 see also `@GRAD`.
 """
 @inline grad(pp::PairPotential, R) = grad(pp, sqrt(sumabs(R, 1)), R)
-@inline grad(pp::PairPotential, r, R) = R .* (evaluate_d(pp, r) ./ r)
+@inline grad(pp::PairPotential, r, R) = R .* (evaluate_d(pp, r) ./ r)'
 
 
 # next create macros that translate
