@@ -18,7 +18,7 @@ module Potentials
 using Prototypes
 
 export PairPotential, ScalarFunction
-export LennardJonesPotential, SWCutoff
+export LennardJonesPotential, SWCutoff, ShiftCutoff, EAMPotential
 export SimpleExponential, GuptaEmbed, GuptaPotential
 export evaluate, evaluate_d, evaluate_dd, @D, @DD, @GRAD, grad
 export call, cutoff
@@ -201,7 +201,7 @@ type ShiftCutoff <: AbstractCutoff
     Jc::Float64
 end
 
-ShiftCutoff(Rc, pp) = ShiftCutoff(Rc, pp(Rc), pp)
+ShiftCutoff(pp, Rc) = ShiftCutoff(pp, Rc, pp(Rc))
 
 @inline evaluate(p::ShiftCutoff, r) = (p.pp(r) - p.Jc) .* (r .<= p.Rc)
 

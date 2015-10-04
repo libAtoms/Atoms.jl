@@ -13,6 +13,16 @@ At the moment, only a neighbourlist is implemented.
 `neighbourlist` currently uses the Python interface and therefore requires
 ASE. 
 
+TODO: rewrite so that ASE is no longer required!
+
+The `MatSciPy` module also implements some simple "one-line" calculators that
+exploit the specific structure of the data returned by `neighbour_list`. These
+are very well optimised. As a rough guidance, for the `PairCalculator`, with
+`LennardJonesPotential` potential and `ShiftCutoff`, the cost of one force
+assembly is about 2/3 the cost of one `neighbour_list` call, whereas an 
+optimised implementation would be only about 1/10th of a `neighbourlist` call.
+With the `SWCutoff` the cost of one force assembly is about twice the cost of 
+one `neighbour_list` call. 
 """
 module MatSciPy
 
@@ -59,6 +69,9 @@ function neighbour_list(atoms::ASEAtoms, quantities::AbstractString,
     results = matscipy_neighbours.neighbour_list(quantities,
                                                  atoms.po, # pyobject(atoms),
                                                  cutoff)
+    if length(quantities)==1
+        return results
+    end
     results = collect(results) # tuple -> array so we can change in place
     # translate from 0- to 1-based indices
     for (idx, quantity) in enumerate(quantities)
@@ -251,18 +264,21 @@ function simple_binsum{TI <: Integer, TF <: AbstractFloat}(i::Vector{TI},
     return B
 end
 
-
-# function binsum{TI, TF, N}(i::Vector{TI}, A::Array{TF, N}, dim)
-#     if size(A, dim) != length(i)
-#         error("binsum : dimensions don't match")
-#     end
-#     out = zeros(
-# end
+function simple_binsum{TI <: Integer, TF <: AbstractFloat}(i::Vector{TI},
+                                                           A::Vector{TF})
+    if length(A) != length(i)
+        error("simple_binsum: need length(A) = length(i)")
+    end
+    B = zeros(TF, maximum(i))
+    @inbounds @simd for n = 1:length(i)
+        B[i[n]] = B[i[n]] + A[n]
+    end
+    return B
+end
 
 
 
 """`PairCalculator` : basic calculator for pair potentials.
-
 """
 type PairCalculator <: AbstractCalculator
     pp::PairPotential
@@ -272,7 +288,7 @@ import Potentials.cutoff
 cutoff(calc::PairCalculator) = cutoff(calc.pp)
 
 function potential_energy(at::ASEAtoms, calc::PairCalculator)
-    _, r = neighbour_list(at, "id", cutoff(calc))
+    r = neighbour_list(at, "d", cutoff(calc))
     return sum( calc.pp(r) )
 end
 
@@ -282,6 +298,40 @@ function potential_energy_d(at::ASEAtoms, calc::PairCalculator)
 end
 
 forces(at::ASEAtoms, calc::PairCalculator) = - potential_energy_d(at, calc)
+
+
+"`EAMCalculator` : basic calculator using the `EAMPotential` type"
+type EAMCalculator <: AbstractCalculator
+    p::EAMPotential
+end
+
+cutoff(calc::EAMCalculator) = max(cutoff(calc.p.V), cutoff(calc.p.rho))
+
+function potential_energy(at::ASEAtoms, calc::EAMCalculator)
+    i, r = neighbour_list(at, "id", cutoff(calc))
+    E = sum( calc.p.V(r) )
+    rho_bar = simple_binsum(i, calc.p.rho(r))
+    F = calc.p.embed(rho_bar)
+    E += sum(F)
+    return E
+    # return ( sum(calc.p.V(r))
+    #          + sum( calc.p.embed( simple_binsum( i, calc.p.rho(r) ) ) ) )
+end
+
+function potential_energy_d(at::ASEAtoms, calc::EAMCalculator)
+    i, j, r, R = neighbour_list(at, "ijdD", cutoff(calc))
+    G = - 2.0 * simple_binsum(i, @GRAD calc.p.V(r, R'))
+    rho_bar = simple_binsum(i, calc.p.rho(r))
+    @show minimum(rho_bar)
+    dF = @D calc.p.embed( rho_bar )
+    drho = @D calc.p.rho(r)
+    for n = 1:length(i)
+        t = dF[i[n]] * drho[n] * R[n, :]' / r[n]
+        G[:, i[n]] -= t
+        G[:, j[n]] += t
+    end
+    return G
+end
 
 
 
