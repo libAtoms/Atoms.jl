@@ -257,7 +257,8 @@ function simple_binsum{TI <: Integer, TF <: AbstractFloat}(i::Vector{TI},
     end
     B = zeros(TF, 3, maximum(i))
     for m = 1:size(A,1)
-        @inbounds @simd for n = 1:length(i)
+        # @inbounds @simd
+        for n = 1:length(i)
             B[m, i[n]] = B[m,i[n]] + A[m, n]
         end
     end
@@ -270,8 +271,9 @@ function simple_binsum{TI <: Integer, TF <: AbstractFloat}(i::Vector{TI},
         error("simple_binsum: need length(A) = length(i)")
     end
     B = zeros(TF, maximum(i))
-    @inbounds @simd for n = 1:length(i)
-        B[i[n]] = B[i[n]] + A[n]
+    # this ought to be a SIMD loop. but that gives me a wrong answer! why?!
+    for n = 1:length(i)
+        B[i[n]] += + A[n]
     end
     return B
 end
@@ -309,29 +311,21 @@ cutoff(calc::EAMCalculator) = max(cutoff(calc.p.V), cutoff(calc.p.rho))
 
 function potential_energy(at::ASEAtoms, calc::EAMCalculator)
     i, r = neighbour_list(at, "id", cutoff(calc))
-    E = sum( calc.p.V(r) )
-    rho_bar = simple_binsum(i, calc.p.rho(r))
-    F = calc.p.embed(rho_bar)
-    E += sum(F)
-    return E
-    # return ( sum(calc.p.V(r))
-    #          + sum( calc.p.embed( simple_binsum( i, calc.p.rho(r) ) ) ) )
+    return ( sum(calc.p.V(r))
+             + sum( calc.p.embed( simple_binsum( i, calc.p.rho(r) ) ) ) )
 end
 
 function potential_energy_d(at::ASEAtoms, calc::EAMCalculator)
     i, j, r, R = neighbour_list(at, "ijdD", cutoff(calc))
+    # pair potential component
     G = - 2.0 * simple_binsum(i, @GRAD calc.p.V(r, R'))
-    rho_bar = simple_binsum(i, calc.p.rho(r))
-    @show minimum(rho_bar)
-    dF = @D calc.p.embed( rho_bar )
-    drho = @D calc.p.rho(r)
-    for n = 1:length(i)
-        t = dF[i[n]] * drho[n] * R[n, :]' / r[n]
-        G[:, i[n]] -= t
-        G[:, j[n]] += t
-    end
+    # EAM component
+    dF = @D calc.p.embed( simple_binsum(i, calc.p.rho(r)) )
+    dF_drho = dF[i]' .* (@GRAD calc.p.rho(r, R'))
+    G += simple_binsum(j, dF_drho) - simple_binsum(i, dF_drho)
     return G
 end
+
 
 
 
