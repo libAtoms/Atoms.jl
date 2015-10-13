@@ -296,7 +296,7 @@ end
 
 function potential_energy_d(at::ASEAtoms, calc::PairCalculator)
     i, r, R = neighbour_list(at, "idD", cutoff(calc))
-    return - 2.0 * simple_binsum(i, @GRAD calc.pp(r, R'))
+    return - 2.0 * simple_binsum(i, @GRAD calc.pp(r, R') )
 end
 
 forces(at::ASEAtoms, calc::PairCalculator) = - potential_energy_d(at, calc)

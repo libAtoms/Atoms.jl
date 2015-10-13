@@ -113,7 +113,7 @@ length(a::ASEAtoms) = a.po[:get_number_of_atoms]()
 
 Set the periodic boundary conditions; `val` is a 3-dimensional vector.
 """
-set_pbc!(a::ASEAtoms, val) = (a.po[:bpc] = val)
+set_pbc!(a::ASEAtoms, val) = (a.po[:pbc] = val)
 
 import Base.cell
 """`get_cell(at::ASEAtoms) = at.po[:get_cell]() -> Matrix`

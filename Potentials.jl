@@ -17,7 +17,7 @@ module Potentials
 
 using Prototypes
 
-export PairPotential, ScalarFunction
+export PairPotential, ScalarFunction, SitePotential
 export LennardJonesPotential, SWCutoff, ShiftCutoff, EAMPotential
 export SimpleExponential, GuptaEmbed, GuptaPotential
 export evaluate, evaluate_d, evaluate_dd, @D, @DD, @GRAD, grad
