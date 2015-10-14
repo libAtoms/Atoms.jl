@@ -187,7 +187,7 @@ Alternative wrapper function
 @protofun get_dofs(a::AbstractAtoms, c::AbstractConstraints)
 get_dofs(atm::AbstractAtoms) = get_dofs(atm, get_constraints(atm))
 
-"""Takes a \"dual\" array (rdim x lenght) and applies the dual constraints
+"""Takes a \"dual\" array (3 x lenght) and applies the dual constraints
 to obtain effective forces acting on dofs. Returns a vector of the same
 length as dofs."""
 @protofun forces_to_dofs{T <: AbstractFloat}(f::Matrix{T}, con::AbstractConstraints)
@@ -260,7 +260,7 @@ get_dEs(idx, a::AbstractAtoms) = get_dEs(idx, a, get_calculator(calc))
 # get_dE
 # (every calculator needs this, so there is no has_dE())
 
-"""Returns the  gradient of the total energy in the format `rdim x length`.
+"""Returns the  gradient of the total energy in the format `3 x length`.
 Alternatively, one can call the simplified form
     get_dE(a::AbstractAtoms) = get_dE(a, get_calculator(a))
 provided that a.calc is avilable."""

@@ -123,6 +123,9 @@ type NeighbourList
     Q::Dict{Char, Any}
 end
 
+# overload getindex to allow direct access to quantities stored in Q.
+Base.getindex(nlist::NeighbourList, key) = nlist.Q[key]
+
 
 # empty constructor
 function NeighbourList(cutoff::Float64; quantities="ij", skin=0.5)
@@ -189,10 +192,20 @@ Equivalently, one can just call
 ```{julia}
 for n, ... in nlist
 ```
+
+Yet another way to loop over sites is
+```{julia}
+for n, ... in Sites(at, rcut)
+```
+where `at` is an `ASEAtoms` object and `rcut` the desired cut-off radius.
 """
+
 type Sites
     neiglist::NeighbourList
 end
+
+# a simpler constructor, directly from an atoms object
+Sites(at::ASEAtoms, rcut) = Sites(NeighbourList(at, rcut))
 
 """`type AtomIteratorState` : iterator state for iterating over
 sites via the `MatSciPy.NeighbourList`; see `?Sites`.
