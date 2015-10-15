@@ -17,7 +17,7 @@ module Potentials
 
 using Prototypes
 
-export PairPotential, ScalarFunction, SitePotential
+export PairPotential, SimpleFunction, SitePotential
 export LennardJonesPotential, SWCutoff, ShiftCutoff, EAMPotential
 export SimpleExponential, GuptaEmbed, GuptaPotential
 export evaluate, evaluate_d, evaluate_dd, @D, @DD, @GRAD, grad
@@ -30,21 +30,21 @@ _eps2_ = 1e2
 ###         Pair Potentials                          
 #########################################################
 
-abstract ScalarFunction
-abstract PairPotential <: ScalarFunction
+abstract SimpleFunction
+abstract PairPotential <: SimpleFunction
 
-"""`evaluate(pp::ScalarFunction, r)`: evaluate a scalar potential at `r`; 
+"""`evaluate(pp::SimpleFunction, r)`: evaluate a scalar potential at `r`; 
 typically a pair potential, where `r` may be a scalar or an array (of scalars)
 """
-@protofun evaluate(pp::ScalarFunction, r)
+@protofun evaluate(pp::SimpleFunction, r)
 "`evaluate_d(pp::PairPotential, r)`: first derivative of pair potential"
-@protofun evaluate_d(pp::ScalarFunction, r)
+@protofun evaluate_d(pp::SimpleFunction, r)
 "`evaluate_d2(pp::PairPotential, r)`: second derivative of pair potential"
-@protofun evaluate_dd(pp::ScalarFunction, r)
+@protofun evaluate_dd(pp::SimpleFunction, r)
 
 # # vectorise these functions
 # for f in (:evaluate, :evaluate_d, :evaluate_dd)
-#     @eval $f{N}(pp::ScalarFunction, r::Array{Float64,N}) =
+#     @eval $f{N}(pp::SimpleFunction, r::Array{Float64,N}) =
 #         reshape(Float64[ $f(pp, s) for s in r ], size(r))
 # end
 
@@ -61,9 +61,9 @@ typically a pair potential, where `r` may be a scalar or an array (of scalars)
 # create an alias to allow the potential to be called directly
 #  make it an inline to ensure that nothing is lost here!
 import Base.call
-@inline call(pp::ScalarFunction, r) = evaluate(pp, r)
-@inline call(pp::ScalarFunction, r, ::Type{Val{:D}}) = evaluate_d(pp, r)
-@inline call(pp::ScalarFunction, r, ::Type{Val{:DD}}) = evaluate_dd(pp, r)
+@inline call(pp::SimpleFunction, r) = evaluate(pp, r)
+@inline call(pp::SimpleFunction, r, ::Type{Val{:D}}) = evaluate_d(pp, r)
+@inline call(pp::SimpleFunction, r, ::Type{Val{:DD}}) = evaluate_dd(pp, r)
 
 @inline call(pp::PairPotential, R, ::Type{Val{:GRAD}}) = grad(pp, R)
 @inline call(pp::PairPotential, r, R, ::Type{Val{:GRAD}}) = grad(pp, r, R)
@@ -164,6 +164,14 @@ Implementation of the C^∞ Stillinger-Weber type cut-off potential
     return - Lc * (1.0 - e) .* e .* t.^2    
 end
 
+
+# function cutoff_NRL(r::Float64, Rc, lc)
+#     fcut = r > Rc ? 0.0 : 1.0 / ( 1.0 + exp( (r-Rc)/lc + 5.0 ) )
+#     return fcut
+# end
+
+
+
 """
 `type SWCutoff`: SW type cut-off potential with C^∞ regularity
      1.0 / ( 1.0 + exp( Lc / (Rc-r) ) )
@@ -245,7 +253,7 @@ LennardJonesPotential(; r0=1.0, e0=1.0) = LennardJonesPotential(r0, e0)
 """`SimpleExponential`
 
    A exp( B (r/r0 - 1) )
-}
+    
    TODO: this is acting as if it had 3 parameters, but there are actually only
       two - rewrite accordingly?
 """
@@ -260,6 +268,9 @@ end
     p.A*p.B/p.r0 * exp( p.B * (r/p.r0 - 1.0) )
 
 
+
+
+
 #########################################################
 ###         Gupta Potential
 
@@ -268,11 +279,11 @@ abstract SitePotential
 type EAMPotential <: SitePotential
     V::PairPotential
     rho::PairPotential
-    embed::ScalarFunction
+    embed::SimpleFunction
 end
 
 "embedding function for the Gupts potential"
-type GuptaEmbed <: ScalarFunction
+type GuptaEmbed <: SimpleFunction
     xi
 end
 @inline evaluate(p::GuptaEmbed, r) = p.xi * sqrt(r)
