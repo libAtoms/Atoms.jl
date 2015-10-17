@@ -128,6 +128,21 @@ end
 
 
 #########################################################
+###         Zero Functions
+"`ZeroPairPotential`: pair potential V(r) = 0.0"
+type ZeroPairPotential <: PairPotential end
+evaluate(p::ZeroFunction, r) = zeros(size(r))
+evaluate_d(p::ZeroFunction, r) = zeros(size(r))
+cutoff(p::ZeroFunction) = 0.0
+
+"`ZeroSitePotential`: Site potential V(R) = 0.0"
+type ZeroSitePotential <: SitePotential end
+evaluate(p::ZeroSitePotential, r, R) = 0.0
+evaluate_d(p::ZeroSitePotential, r, R) = zeros(size(R))
+cutoff(p::ZeroSitePotential) = 0.0
+
+
+#########################################################
 ### Cut-off potentials
 
 """ An `AbstractCutoff` is a type that, when evaluated will return the cut-off
@@ -169,7 +184,6 @@ end
 #     fcut = r > Rc ? 0.0 : 1.0 / ( 1.0 + exp( (r-Rc)/lc + 5.0 ) )
 #     return fcut
 # end
-
 
 
 """
@@ -215,9 +229,6 @@ ShiftCutoff(pp, Rc) = ShiftCutoff(pp, Rc, pp(Rc))
 
 @inline evaluate_d(p::ShiftCutoff, r) = (@D p.pp(r)) .* (r .<= p.Rc)
 
-
-
-########################
 
 
 
@@ -269,6 +280,28 @@ end
 
 
 
+#########################################################
+###         Morse Potential
+"""`MorsePotential <: PairPotential`
+
+   e0 ( exp( -2 A (r/r0 - 1) ) - 2 exp( - A (r/r0 - 1) ) )
+    
+   TODO: this is acting as if it has 3 parameters, but there are actually only
+      two -> rewrite accordingly?
+"""
+type MorsePotential <: PairPotential
+    e0::Float64
+    A::Float64
+    r0::Float64
+end
+@inline morse_exp(p::MorsePotential, r) = exp(-p.A * (r/p.r0 - 1.0))
+@inline function evaluate(p::SimpleExponential, r) 
+    e = morse_exp(p, r); return p.e0 * e .* (e - 2.0) end
+@inline function  evaluate_d(p::SimpleExponential, r)
+    e = morse_exp(p, r);  return (-2.0 * p.e0 * p.A) * e .* (e - 1.0) end
+@inline function  evaluate_both(p::SimpleExponential, r) 
+    e = morse_exp(p, r)
+    return p.e0 * e .* (e - 2.0), (-2.0 * p.e0 * p.A) * e .* (e - 1.0) end
 
 
 #########################################################
