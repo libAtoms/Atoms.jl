@@ -32,6 +32,8 @@ _eps2_ = 1e2
 
 abstract SimpleFunction
 abstract PairPotential <: SimpleFunction
+abstract SitePotential
+
 
 """`evaluate(pp::SimpleFunction, r)`: evaluate a scalar potential at `r`; 
 typically a pair potential, where `r` may be a scalar or an array (of scalars)
@@ -77,7 +79,7 @@ if `r = sqrt(sumabs2(R, 1))` is already available, then calling
 
 see also `@GRAD`.
 """
-@inline grad(pp::PairPotential, R) = grad(pp, sqrt(sumabs(R, 1)), R)
+@inline grad(pp::PairPotential, R) = grad(pp, sqrt(sumabs2(R, 1)), R)
 @inline grad(pp::PairPotential, r, R) = R .* (evaluate_d(pp, r) ./ r)'
 
 
@@ -307,7 +309,6 @@ end
 #########################################################
 ###         Gupta Potential
 
-abstract SitePotential
 
 type EAMPotential <: SitePotential
     V::PairPotential
@@ -331,6 +332,7 @@ GuptaPotential(A, xi, p, q, r0, TC::Type, TCargs...)  =
     EAMPotential( TC( SimpleExponential(A, p, r0), TCargs... ),      # V
                   TC( SimpleExponential(1.0, 2*q, r0), TCargs...),   # rho
                   GuptaEmbed( xi ) )                                 # embed
+
 
 
 end
