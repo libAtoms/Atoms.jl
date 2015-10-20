@@ -24,6 +24,8 @@ export SimpleExponential, GuptaEmbed, GuptaPotential
 export evaluate, evaluate_d, evaluate_dd, @D, @DD, @GRAD, grad
 export cutoff, MorsePotential, ZeroSitePotential, ZeroPairPotential
 
+export @D2
+
 # some constants used with the SWCutoff
 const _eps_ = eps()
 const _eps2_ = 1e-2
@@ -81,23 +83,37 @@ see also `@GRAD`.
 ###
 # create an alias to allow the potential to be called directly
 #  make it an inline to ensure that nothing is lost here!
+#
+# BETTER: call(::Type{Val{:D}}, pp::SimpleFunction, varargs...) = evaluate_d(pp, varargs...)
+#
 import Base.call
-@inline call(pp::SimpleFunction, r) = evaluate(pp, r)
-@inline call(pp::SimpleFunction, r, ::Type{Val{:D}}) = evaluate_d(pp, r)
-@inline call(pp::SimpleFunction, r, ::Type{Val{:DD}}) = evaluate_dd(pp, r)
+typealias FunUn Union{SimpleFunction, SitePotential}
+@inline call(pp::FunUn, varargs...) = evaluate(pp, varargs...)
+@inline call(pp::FunUn, ::Type{Val{:D}}, varargs...) =
+    evaluate_d(pp, varargs...)
+@inline call(pp::FunUn, ::Type{Val{:DD}}, varargs...) =
+    evaluate_dd(pp, varargs...)
+@inline call(pp::FunUn, ::Type{Val{:GRAD}}, varargs...) =
+    grad(pp, varargs...)
 
-@inline call(pp::PairPotential, R, ::Type{Val{:GRAD}}) = grad(pp, R)
 
-@inline call(pp::SimpleFunction, r, R) = evaluate(pp, r, R)
-@inline call(pp::PairPotential, r, R, ::Type{Val{:GRAD}}) = grad(pp, r, R)
+# @inline call(pp::SimpleFunction, r) = evaluate(pp, r)
+# @inline call(pp::SimpleFunction, r, ::Type{Val{:D}}) = evaluate_d(pp, r)
+# @inline call(pp::SimpleFunction, r, ::Type{Val{:DD}}) = evaluate_dd(pp, r)
 
-# now the same for site potentials;
-@inline call(p::SitePotential, R) = evaluate(p, R)
-@inline call(p::SitePotential, R, ::Type{Val{:D}}) = evaluate_d(p, R)
-@inline call(p::SitePotential, R, ::Type{Val{:GRAD}}) = grad(p, R)
-@inline call(p::SitePotential, r, R) = evaluate(p, R)
-@inline call(p::SitePotential, r, R, ::Type{Val{:D}}) = evaluate_d(p, r, R)
-@inline call(p::SitePotential, r, R, ::Type{Val{:GRAD}}) = grad(p, r, R)
+# @inline call(pp::PairPotential, R, ::Type{Val{:GRAD}}) = grad(pp, R)
+
+# @inline call(pp::SimpleFunction, r, R) = evaluate(pp, r, R)
+# @inline call(pp::PairPotential, r, R, ::Type{Val{:GRAD}}) = grad(pp, r, R)
+
+# # now the same for site potentials;
+# @inline call(p::SitePotential, R) = evaluate(p, R)
+# @inline call(p::SitePotential, R, ::Type{Val{:D}}) = evaluate_d(p, R)
+# @inline call(p::SitePotential, R, ::Type{Val{:GRAD}}) = grad(p, R)
+# @inline call(p::SitePotential, r, R) = evaluate(p, R)
+# @inline call(p::SitePotential, r, R, ::Type{Val{:D}}) = evaluate_d(p, r, R)
+# @inline call(p::SitePotential, r, R, ::Type{Val{:GRAD}}) = grad(p, r, R)
+
 
 
 
@@ -117,10 +133,10 @@ see also `@DD`.
 """
 macro D(fsig::Expr)
     @assert fsig.head == :call
+    insert!(fsig.args, 2, Val{:D})
     for n = 1:length(fsig.args)
         fsig.args[n] = esc(fsig.args[n])
     end
-    push!(fsig.args, Val{:D})
     return fsig
 end
 
@@ -130,7 +146,7 @@ macro DD(fsig::Expr)
     for n = 1:length(fsig.args)
         fsig.args[n] = esc(fsig.args[n])
     end
-    push!(fsig.args, Val{:DD})
+    insert!(fsig.args, 2, Val{:DD})
     return fsig
 end
 
@@ -142,7 +158,7 @@ macro GRAD(fsig::Expr)
     for n = 1:length(fsig.args)
         fsig.args[n] = esc(fsig.args[n])
     end
-    push!(fsig.args, Val{:GRAD})
+    insert!(fsig.args, 2, Val{:GRAD})
     return fsig
 end
 
