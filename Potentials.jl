@@ -15,16 +15,18 @@ or within abstract frameworks.
 """
 module Potentials
 
-using Prototypes
+using Prototypes, AtomsInterface
+importall AtomsInterface
 
-export PairPotential, SimpleFunction, SitePotential
+export PairPotential, SimpleFunction, SitePotential, AbstractCutoff
 export LennardJonesPotential, SWCutoff, ShiftCutoff, EAMPotential
 export SimpleExponential, GuptaEmbed, GuptaPotential
 export evaluate, evaluate_d, evaluate_dd, @D, @DD, @GRAD, grad
-export call, cutoff
-    
-_eps_ = eps()
-_eps2_ = 1e2
+export cutoff, MorsePotential, ZeroSitePotential, ZeroPairPotential
+
+# some constants used with the SWCutoff
+const _eps_ = eps()
+const _eps2_ = 1e-2
 
 #########################################################
 ###         Pair Potentials                          
@@ -44,12 +46,29 @@ typically a pair potential, where `r` may be a scalar or an array (of scalars)
 "`evaluate_d2(pp::PairPotential, r)`: second derivative of pair potential"
 @protofun evaluate_dd(pp::SimpleFunction, r)
 
-# # vectorise these functions
-# for f in (:evaluate, :evaluate_d, :evaluate_dd)
-#     @eval $f{N}(pp::SimpleFunction, r::Array{Float64,N}) =
-#         reshape(Float64[ $f(pp, s) for s in r ], size(r))
-# end
+# A function may also depend on a vector R. Since neighbourlists often
+# provide the scalar r = norm(R), we can also evaluate SimpleFunctions
+# using the form
+#    evaluate(p::SimpleFunction, r, R)
+#
+# But if it is a PairPotential, then we should assume - by default - that
+# it depends only on r, and hence implement the following defaults
+evaluate(p::PairPotential, r, R) = evaluate(p, r)
+evaluate_d(p::PairPotential, r, R) = evaluate_d(p, r)
+evaluate_dd(p::PairPotential, r, R) = evaluate_dd(p, r)
 
+# but for grad, this doesn't work. the default here are given by
+"""`grad(pp::PairPotential, R)`: if `R` is a 3 x N matrix (or 3 -vector) then
+`grad` returns a 3x N array `G` whose columns are the gradient of the 
+pair potential as a function of |R[:,i]|.
+
+if `r = sqrt(sumabs2(R, 1))` is already available, then calling 
+`grad(pp, r, R)` may be more efficient.
+
+see also `@GRAD`.
+"""
+@inline grad(pp::PairPotential, R) = grad(pp, sqrt(sumabs2(R, 1)), R)
+@inline grad(pp::PairPotential, r, R) = R .* (evaluate_d(pp, r) ./ r)'
 
 
 ### The next block of code is an attempt to use call-overloading and macros to
@@ -68,19 +87,18 @@ import Base.call
 @inline call(pp::SimpleFunction, r, ::Type{Val{:DD}}) = evaluate_dd(pp, r)
 
 @inline call(pp::PairPotential, R, ::Type{Val{:GRAD}}) = grad(pp, R)
+
+@inline call(pp::SimpleFunction, r, R) = evaluate(pp, r, R)
 @inline call(pp::PairPotential, r, R, ::Type{Val{:GRAD}}) = grad(pp, r, R)
 
-"""`grad(pp::PairPotential, R)`: if `R` is a 3 x N matrix (or 3 -vector) then
-`grad` returns a 3x N array `G` whose columns are the gradient of the 
-pair potential as a function of |R[:,i]|.
+# now the same for site potentials;
+@inline call(p::SitePotential, R) = evaluate(p, R)
+@inline call(p::SitePotential, R, ::Type{Val{:D}}) = evaluate_d(p, R)
+@inline call(p::SitePotential, R, ::Type{Val{:GRAD}}) = grad(p, R)
+@inline call(p::SitePotential, r, R) = evaluate(p, R)
+@inline call(p::SitePotential, r, R, ::Type{Val{:D}}) = evaluate_d(p, r, R)
+@inline call(p::SitePotential, r, R, ::Type{Val{:GRAD}}) = grad(p, r, R)
 
-if `r = sqrt(sumabs2(R, 1))` is already available, then calling 
-`grad(pp, r, R)` may be more efficient.
-
-see also `@GRAD`.
-"""
-@inline grad(pp::PairPotential, R) = grad(pp, sqrt(sumabs2(R, 1)), R)
-@inline grad(pp::PairPotential, r, R) = R .* (evaluate_d(pp, r) ./ r)'
 
 
 # next create macros that translate
@@ -133,12 +151,15 @@ end
 ###         Zero Functions
 "`ZeroPairPotential`: pair potential V(r) = 0.0"
 type ZeroPairPotential <: PairPotential end
-evaluate(p::ZeroFunction, r) = zeros(size(r))
-evaluate_d(p::ZeroFunction, r) = zeros(size(r))
-cutoff(p::ZeroFunction) = 0.0
+evaluate(p::ZeroPairPotential, r) = zeros(size(r))
+evaluate_d(p::ZeroPairPotential, r) = zeros(size(r))
+grad(p::ZeroPairPotential, r, R) = zeros(size(R))
+cutoff(p::ZeroPairPotential) = 0.0
 
 "`ZeroSitePotential`: Site potential V(R) = 0.0"
 type ZeroSitePotential <: SitePotential end
+evaluate(p::ZeroSitePotential, R) = 0.0
+evaluate_d(p::ZeroSitePotential, R) = zeros(size(R))
 evaluate(p::ZeroSitePotential, r, R) = 0.0
 evaluate_d(p::ZeroSitePotential, r, R) = zeros(size(R))
 cutoff(p::ZeroSitePotential) = 0.0
@@ -200,12 +221,11 @@ type SWCutoff <: AbstractCutoff
     Rc::Float64
     Lc::Float64
 end
-
 @inline evaluate(p::SWCutoff, r) =
     p.pp(r) .* cutsw(r, p.Rc, p.Lc)
-
 @inline evaluate_d(p::SWCutoff, r) =
     p.pp(r) .* cutsw_d(r, p.Rc, p.Lc) + (@D p.pp(r)) .* cutsw(r, p.Rc, p.Lc)
+# cutoff is automatically implemented because of field Rc
 
 
 ########################
@@ -224,13 +244,10 @@ type ShiftCutoff <: AbstractCutoff
     Rc::Float64
     Jc::Float64
 end
-
 ShiftCutoff(pp, Rc) = ShiftCutoff(pp, Rc, pp(Rc))
-
 @inline evaluate(p::ShiftCutoff, r) = (p.pp(r) - p.Jc) .* (r .<= p.Rc)
-
 @inline evaluate_d(p::ShiftCutoff, r) = (@D p.pp(r)) .* (r .<= p.Rc)
-
+# cutoff is automatically implemented because of field Rc
 
 
 
@@ -296,12 +313,13 @@ type MorsePotential <: PairPotential
     A::Float64
     r0::Float64
 end
+MorsePotential(A::Float64; e0=1.0, r0=1.0) = MorsePotential(e0, A, r0)
 @inline morse_exp(p::MorsePotential, r) = exp(-p.A * (r/p.r0 - 1.0))
-@inline function evaluate(p::SimpleExponential, r) 
+@inline function evaluate(p::MorsePotential, r) 
     e = morse_exp(p, r); return p.e0 * e .* (e - 2.0) end
-@inline function  evaluate_d(p::SimpleExponential, r)
+@inline function  evaluate_d(p::MorsePotential, r)
     e = morse_exp(p, r);  return (-2.0 * p.e0 * p.A) * e .* (e - 1.0) end
-@inline function  evaluate_both(p::SimpleExponential, r) 
+@inline function  evaluate_both(p::MorsePotential, r) 
     e = morse_exp(p, r)
     return p.e0 * e .* (e - 2.0), (-2.0 * p.e0 * p.A) * e .* (e - 1.0) end
 

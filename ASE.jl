@@ -30,7 +30,7 @@ using AtomsInterface
 importall AtomsInterface
 
 export ASEAtoms, pyobject
-export convert, get_array, set_array!, get_positions, set_positions!, positions
+export convert, get_array, set_array!, set_positions!, positions
 export get_cell, set_cell!
 export set_calculator, get_forces, get_potential_energy, get_stress
 export repeat, bulk, length
@@ -90,11 +90,7 @@ set_array!(a::ASEAtoms, name, value) = a.po[:set_array(name, value)]
 
 TODO: rewrite to create a single copy.
 """
-get_positions(a::ASEAtoms) = a.po[:get_positions]()'
-
-
-"alias for `get_positions`"
-positions = get_positions
+positions(a::ASEAtoms) = a.po[:get_positions]()'
 
 
 """`set_positions!(at::ASEAtoms, p::Array{Float64, 2})`

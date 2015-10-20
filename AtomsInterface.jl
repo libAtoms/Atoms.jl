@@ -13,11 +13,11 @@ module AtomsInterface
 using Prototypes
 
 export AbstractAtoms,
-       get_positions,
-       set_positions!,
-       get_neighbours,
-       set_neighbours!,
-       AbstractCalculator
+positions, set_positions!,
+neighbours, set_neighbours!,
+AbstractCalculator,
+potential_energy, forces,
+r_sum, r_dot
 
 
 
@@ -162,35 +162,36 @@ neighbours(n::Integer, neigs::AbstractNeighbourList,
 #  CONSTRAINTS
 #######################################################################
 
-# constraints implement boundary conditions, or other types
-# of constraints; the details of this interface are still a bit fuzzy for me
+# # constraints implement boundary conditions, or other types
+# # of constraints; the details of this interface are still a bit fuzzy for me
 
-"""Abstract supertype for constraints; these are objects that implement boundary
-conditions."""
-abstract AbstractConstraints
+# """Abstract supertype for constraints; these are objects that implement boundary
+# conditions."""
+# abstract AbstractConstraints
 
-"Return constraints attached to the atoms object (if one exists)"
-@protofun get_constraints(::AbstractAtoms)
+# "Return constraints attached to the atoms object (if one exists)"
+# @protofun get_constraints(::AbstractAtoms)
 
-"Attach a constraints object to the atoms object"
-@protofun set_constraints!(::AbstractAtoms, ::AbstractConstraints)
+# "Attach a constraints object to the atoms object"
+# @protofun set_constraints!(::AbstractAtoms, ::AbstractConstraints)
 
 
-"""Returns a bare `Vector{T <: FloatingPoint}` object containing the degrees of
-freedom describing the state of the simulation. This function should be
-overloaded for concrete implementions of `AbstractAtoms` and
-`AbstractConstraints`.  
+# """Returns a bare `Vector{T <: FloatingPoint}` object containing the degrees of
+# freedom describing the state of the simulation. This function should be
+# overloaded for concrete implementions of `AbstractAtoms` and
+# `AbstractConstraints`.  
 
-Alternative wrapper function 
-    get_dofs(atm::AbstractAtoms) = get_dofs(atm, get_constraints(atm))
-"""
-@protofun get_dofs(a::AbstractAtoms, c::AbstractConstraints)
-get_dofs(atm::AbstractAtoms) = get_dofs(atm, get_constraints(atm))
+# Alternative wrapper function 
+#     get_dofs(atm::AbstractAtoms) = get_dofs(atm, get_constraints(atm))
+# """
+# @protofun get_dofs(a::AbstractAtoms, c::AbstractConstraints)
+# get_dofs(atm::AbstractAtoms) = get_dofs(atm, get_constraints(atm))
 
-"""Takes a \"dual\" array (3 x lenght) and applies the dual constraints
-to obtain effective forces acting on dofs. Returns a vector of the same
-length as dofs."""
-@protofun forces_to_dofs{T <: AbstractFloat}(f::Matrix{T}, con::AbstractConstraints)
+
+# """Takes a \"dual\" array (3 x lenght) and applies the dual constraints
+# to obtain effective forces acting on dofs. Returns a vector of the same
+# length as dofs."""
+# @protofun forces_to_dofs{T <: AbstractFloat}(f::Matrix{T}, con::AbstractConstraints)
 
 
 #######################################################################
@@ -209,69 +210,98 @@ abstract AbstractCalculator
 # have the calculator attached to the atoms object; see multiple convenience
 # wrapper functions below.
 "Return calculator attached to the atoms object (if one exists)"
-@protofun get_calculator(::AbstractAtoms)
+@protofun calculator(::AbstractAtoms)
 
 "Attach a calculator to the atoms object"
-@protofun set_calculator(::AbstractAtoms)
-
+@protofun set_calculator!(::AbstractAtoms)
 
 "Returns the cut-off radius of the potential."
-@protofun rcut(::AbstractCalculator)
+@protofun cutoff(::AbstractCalculator)
 
 ## ==============================
 ## get_E and has_E   : total energy
 
 """Return the total energy of a configuration of atoms `a`, using the calculator
 `c`.  Alternatively can call `get_E(a) = get_E(a, get_calculator(a))` """
-@protofun get_E(a::AbstractAtoms, c::AbstractCalculator)
-get_E(a::AbstractAtoms) = get_E(a, get_calculator(a))
+@protofun potential_energy(a::AbstractAtoms, c::AbstractCalculator)
+potential_energy(a::AbstractAtoms) =
+    potential_energy(a, get_calculator(a))
 
-"Returns `true` if the calculator `c` can compute total energies."
-@protofun has_E(c::AbstractCalculator)
-has_E(a::AbstractAtoms) = has_E(get_calculator(a))
+# "Returns `true` if the calculator `c` can compute total energies."
+# @protofun has_E(c::AbstractCalculator)
+# has_E(a::AbstractAtoms) = has_E(get_calculator(a))
 
 ## ==============================
 ## get_Es and has_Es   : site energy
 
-"""`get_Es(idx, a::AbstractAtoms, c::AbstractCalculator)`: 
-Returns an `Vector{Float64}` of site energies of a configuration of
-atoms `a`, using the calculator `c`. If idx==[] (default), then *all*
-site energies are returned, otherwise those corresponding to the list
-of indices idx.
-"""
-@protofun get_Es(idx, a::AbstractAtoms, c::AbstractCalculator)
-get_Es(idx, a::AbstractAtoms) = get_Es(idx, a, get_calculator(a))
+# """`site_energies(idx, a::AbstractAtoms, c::AbstractCalculator)`: 
+# Returns an `Vector{Float64}` of site energies of a configuration of
+# atoms `a`, using the calculator `c`. If idx==[] (default), then *all*
+# site energies are returned, otherwise those corresponding to the list
+# of indices idx.
+# """
+# @protofun site_energies(idx, a::AbstractAtoms, c::AbstractCalculator)
+# get_Es(idx, a::AbstractAtoms) = get_Es(idx, a, get_calculator(a))
 
-"Returns `true` if the calculator `c` can compute site energies."
-@protofun has_Es(c::AbstractCalculator)
-has_Es(a::AbstractAtoms) = has_Es(get_calculator(a))
+# "Returns `true` if the calculator `c` can compute site energies."
+# @protofun has_Es(c::AbstractCalculator)
+# has_Es(a::AbstractAtoms) = has_Es(get_calculator(a))
 
 
-"""same calling convention as get_Es.
+# """same calling convention as get_Es.
 
-Returns a tuple `(dEs, Ineigs)`, where `dEs` is d x nneigs and
-`Ineigs` is the list of neighbours for which the forces have been computed
-"""
-@protofun get_dEs(idx, a::AbstractAtoms, c::AbstractCalculator)
-get_dEs(idx, a::AbstractAtoms) = get_dEs(idx, a, get_calculator(calc))
+# Returns a tuple `(dEs, Ineigs)`, where `dEs` is d x nneigs and
+# `Ineigs` is the list of neighbours for which the forces have been computed
+# """
+# @protofun get_dEs(idx, a::AbstractAtoms, c::AbstractCalculator)
+# get_dEs(idx, a::AbstractAtoms) = get_dEs(idx, a, get_calculator(calc))
 
 
 # ==========================================================
 # get_dE
 # (every calculator needs this, so there is no has_dE())
 
-"""Returns the  gradient of the total energy in the format `3 x length`.
+"""Returns the negative gradient of the total energy in the format `3 x length`.
 Alternatively, one can call the simplified form
-    get_dE(a::AbstractAtoms) = get_dE(a, get_calculator(a))
-provided that a.calc is avilable."""
-@protofun get_dE(a::AbstractAtoms, c::AbstractCalculator)
-get_dE(a::AbstractAtoms) = get_dE(a, get_calculator(a))
+    forces(a::AbstractAtoms) = forces(a, calculator(a))
+provided that a has an attached calculator is avilable."""
+@protofun forces(a::AbstractAtoms, c::AbstractCalculator)
+forces(a::AbstractAtoms) = forces(a, calculator(a))
 
 
-"Return gradient of total energy taken w.r.t. dofs, i.e., as a long vector. "
-get_dE_dofs(a::AbstractAtoms, calc::AbstractCalculator, con::AbstractConstraints) =
-    forces_to_dofs(get_dE(a, calc), con)
-get_dE_dofs(a::AbstractAtoms) = get_dE(a, get_calculator(a),
-                                       get_constraints(a) )
+# """Returns the  gradient of the total energy in the format `3 x length`.
+# Alternatively, one can call the simplified form
+#     get_dE(a::AbstractAtoms) = get_dE(a, get_calculator(a))
+# provided that a.calc is avilable."""
+# @protofun get_dE(a::AbstractAtoms, c::AbstractCalculator)
+# get_dE(a::AbstractAtoms) = get_dE(a, get_calculator(a))
+
+
+# "Return gradient of total energy taken w.r.t. dofs, i.e., as a long vector. "
+# get_dE_dofs(a::AbstractAtoms, calc::AbstractCalculator, con::AbstractConstraints) =
+#     forces_to_dofs(get_dE(a, calc), con)
+# get_dE_dofs(a::AbstractAtoms) = get_dE(a, get_calculator(a),
+#                                        get_constraints(a) )
+
+
+# ==========================================================
+### Some useful utility functions
+############################################################
+###   Robust Summation and Dot Products
+############################################################
+## Should this go into LjOptim?
+
+"Robust summation. Uses `sum_kbn`."
+r_sum(a) = sum_kbn(a)
+
+
+## NOTE: if I see this correctly, then r_dot allocates a temporary
+##       vector, which is likely quite a performance overhead.
+##       probably, we want to re-implement this.
+## TODO: new version without the intermediate allocation
+"Robust inner product. Defined as `r_dot(a, b) = r_sum(a .* b)`"
+r_dot(a, b) = r_sum(a[:] .* b[:])
+
 
 end
+

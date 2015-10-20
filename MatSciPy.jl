@@ -27,6 +27,8 @@ one `neighbour_list` call.
 module MatSciPy
 
 using ASE, PyCall, Potentials, AtomsInterface
+importall AtomsInterface
+
 @pyimport matscipy.neighbours as matscipy_neighbours
 
 
@@ -112,23 +114,14 @@ type NeighbourList
     cutoff::Float64
     quantities::ASCIIString   # remember which quantities the user wants
     skin::Float64
-    # i::Vector{Int32}
-    # j::Vector{Int32}
-    # shift::Matrix{Float64}
-    # r::Vector{Float64}
-    # R::Matrix{Float64}
-    # X::Matrix{Float64}
-    # mask::Vector{Float64}
-    # X::Matrix{Float64}   
     Q::Dict{Char, Any}
 end
 
 # overload getindex to allow direct access to quantities stored in Q.
 Base.getindex(nlist::NeighbourList, key) = nlist.Q[key]
 
-
 # empty constructor
-function NeighbourList(cutoff::Float64; quantities="ij", skin=0.5)
+function NeighbourList(cutoff::Float64; quantities="ijdD", skin=0.5)
     if quantities[1:2] != "ij"
         error("NeighbourList: quantities must start with \"ij\"")
     end
