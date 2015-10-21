@@ -11,7 +11,6 @@ using TestAtoms, Potentials, MatSciPy, ASE
 # println("Testing Lennard-Jones Potential")
 # test_ScalarFunction(MorsePotential(2.0), 0.9 + rand(20))
 
-
 # println("Testing Lennard-Jones Potential with cutoff")
 # test_ScalarFunction(SWCutoff(LennardJonesPotential(), 2.1, 1.0), 1.5 + rand(20))
 

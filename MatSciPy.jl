@@ -50,6 +50,7 @@ importall AtomsInterface
 
 export update!, Sites, NeighbourList, potential_energy, potential_energy_d
 export cutoff
+export simple_binsum
 
 
 """
