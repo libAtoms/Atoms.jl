@@ -334,10 +334,10 @@ MorsePotential(A::Float64; e0=1.0, r0=1.0) = MorsePotential(e0, A, r0)
 @inline function evaluate(p::MorsePotential, r) 
     e = morse_exp(p, r); return p.e0 * e .* (e - 2.0) end
 @inline function  evaluate_d(p::MorsePotential, r)
-    e = morse_exp(p, r);  return (-2.0 * p.e0 * p.A) * e .* (e - 1.0) end
-@inline function  evaluate_both(p::MorsePotential, r) 
-    e = morse_exp(p, r)
-    return p.e0 * e .* (e - 2.0), (-2.0 * p.e0 * p.A) * e .* (e - 1.0) end
+    e = morse_exp(p, r);  return (-2.0 * p.e0 * p.A / p.r0) * e .* (e - 1.0) end
+# @inline function  evaluate_both(p::MorsePotential, r) 
+#     e = morse_exp(p, r)
+#     return p.e0 * e .* (e - 2.0), (-2.0 * p.e0 * p.A) * e .* (e - 1.0)/p.r0 end
 
 
 #########################################################
