@@ -35,7 +35,7 @@ export get_cell, set_cell!
 export set_calculator, get_forces, get_potential_energy, get_stress
 export repeat, bulk, length
 export ASENeighborList, get_neighbors, neighbors
-export get_cell, cell, set_pbc!
+export get_cell, cell, set_pbc!, iscubic, assert_cubic
 
 
 using PyCall
@@ -119,7 +119,7 @@ cell.
 """
 get_cell(at::ASEAtoms) = at.po[:get_cell]()
 "alias for `get_cell`"
-cell(a::ASEAtoms) = get_cell(a::ASEAtoms)
+@inline cell(a::ASEAtoms) = get_cell(a::ASEAtoms)
 
 "counterpart for `get_cell` (not tested?)"
 set_cell!(a::ASEAtoms, p::Array{Float64,2}) = a.po[:set_cell](p)
@@ -133,7 +133,9 @@ get_potential_energy(a::ASEAtoms) = a.po[:get_potential_energy]()
 get_stress(a::ASEAtoms) = a.po[:get_stress]()
 
 
-
+iscubic(at::ASEAtoms) = isdiag(cell(at))
+assert_cubic(at::ASEAtoms) =
+    isdiag(cell(at0) ? nothing : error("ASEAtoms cell is not cubic as asserted")
 
 
 ############################################################

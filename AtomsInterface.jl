@@ -303,5 +303,36 @@ r_sum(a) = sum_kbn(a)
 r_dot(a, b) = r_sum(a[:] .* b[:])
 
 
+
+# ==================================================
+# more abstract types that eventually need to be
+# arranged in a better way
+
+abstract Preconditioner
+
+
+
+"store an array; assumes that obj.arrays exists"
+function set_array!(obj::Any, key, val)
+    tbm.arrays[key] = val
+end
+
+"""retrieve an array; instead of raising an exception if `key` does not exist,
+ this function returns `nothing`"""
+function get_array(obj::Any, key)
+    if haskey(tbm.arrays, key)
+        return tbm.arrays[key]
+    else
+        return nothing
+    end
+end
+
+"""`max_force(f::AbstractArray{2})`:
+
+For a 3 x N array `f`, return the maximum of `|f[:,n]|₂`.
+"""
+maxforce(f::AbstractArray{2}) = sqrt(maximum(sumabs2(f, 1)))
+
+
 end
 
