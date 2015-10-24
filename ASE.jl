@@ -135,7 +135,7 @@ get_stress(a::ASEAtoms) = a.po[:get_stress]()
 
 iscubic(at::ASEAtoms) = isdiag(cell(at))
 assert_cubic(at::ASEAtoms) =
-    isdiag(cell(at0) ? nothing : error("ASEAtoms cell is not cubic as asserted")
+    isdiag(cell(at0)) ? nothing : error("ASEAtoms cell is not cubic as asserted")
 
 
 ############################################################
