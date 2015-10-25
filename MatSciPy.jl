@@ -48,7 +48,8 @@ importall AtomsInterface
 # end
 
 
-export update!, Sites, NeighbourList, potential_energy, potential_energy_d
+export update!, Sites, NeighbourList
+export potential_energy, potential_energy_d, forces
 export cutoff
 export simple_binsum
 

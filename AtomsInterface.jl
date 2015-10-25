@@ -17,7 +17,10 @@ positions, set_positions!,
 neighbours, set_neighbours!,
 AbstractCalculator,
 potential_energy, forces,
-r_sum, r_dot
+r_sum, r_dot,
+Preconditioner,
+set_array!, get_array,
+maxforce
 
 
 
@@ -314,14 +317,14 @@ abstract Preconditioner
 
 "store an array; assumes that obj.arrays exists"
 function set_array!(obj::Any, key, val)
-    tbm.arrays[key] = val
+    obj.arrays[key] = val
 end
 
 """retrieve an array; instead of raising an exception if `key` does not exist,
  this function returns `nothing`"""
 function get_array(obj::Any, key)
-    if haskey(tbm.arrays, key)
-        return tbm.arrays[key]
+    if haskey(obj.arrays, key)
+        return obj.arrays[key]
     else
         return nothing
     end
@@ -331,7 +334,7 @@ end
 
 For a 3 x N array `f`, return the maximum of `|f[:,n]|₂`.
 """
-maxforce(f::AbstractArray{2}) = sqrt(maximum(sumabs2(f, 1)))
+maxforce(f) = sqrt(maximum(sumabs2(f, 1)))
 
 
 end

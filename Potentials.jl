@@ -244,7 +244,7 @@ end
     p.pp(r) .* cutsw(r, p.Rc, p.Lc)
 @inline evaluate_d(p::SWCutoff, r) =
     p.pp(r) .* cutsw_d(r, p.Rc, p.Lc) + (@D p.pp(r)) .* cutsw(r, p.Rc, p.Lc)
-# cutoff is automatically implemented because of field Rc
+# `cutoff` is automatically implemented because of field Rc
 
 
 ########################

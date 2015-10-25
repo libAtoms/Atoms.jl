@@ -8,9 +8,6 @@ using TestAtoms, Potentials, MatSciPy, ASE
 # println("Testing Lennard-Jones Potential")
 # test_ScalarFunction(LennardJonesPotential(), 0.9 + rand(20))
 
-println("Testing Morse Potential")
-test_ScalarFunction(MorsePotential(2.0), 0.9 + rand(20))
-
 # println("Testing Lennard-Jones Potential with cutoff")
 # test_ScalarFunction(SWCutoff(LennardJonesPotential(), 2.1, 1.0), 1.5 + rand(20))
 
@@ -45,7 +42,22 @@ test_ScalarFunction(MorsePotential(2.0), 0.9 + rand(20))
 
 
 
+# reference configuration
+at = bulk("Al")
+at = repeat(at, (5, 5, 1))
+X0 = positions(at);
+# jiggle the positions
+set_positions!(at, X0+0.03 * rand(size(X0)))
+# create a calculator
+r0 = rnn("Al")
+rcut = 2.5 * r0
+calc = MatSciPy.PairCalculator( SWCutoff( LennardJonesPotential(r0, 1.0), rcut, 1.0 ) )
+test_potentialenergy(calc, at)
+dE = potential_energy_d(at, calc)
+frc = forces(at, calc)
+println(vecnorm(dE + frc))
 
+# test_ScalarFunction(SWCutoff( LennardJonesPotential(r0, 1.0), rcut, 1.0 ), 2.4 + rand(20))
 
 
 

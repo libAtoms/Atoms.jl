@@ -135,7 +135,8 @@ get_stress(a::ASEAtoms) = a.po[:get_stress]()
 
 iscubic(at::ASEAtoms) = isdiag(cell(at))
 assert_cubic(at::ASEAtoms) =
-    isdiag(cell(at0)) ? nothing : error("ASEAtoms cell is not cubic as asserted")
+    isdiag(cell(at)) ? nothing : error(""""ASEAtoms cell is not cubic as 
+                                       asserted: cell = $(cell(at))""")
 
 
 ############################################################
@@ -343,5 +344,29 @@ function next(I::Tuple{ASEAtoms,ASENeighborList}, state::ASEAtomIteratorState)
 end
 
 
+
+################### some useful hacks ###################
+#
+#  
+
+export rnn
+
+"""
+`rnn(species)` : 
+computes the nearest-neighbour distance for a given species
+"""
+function rnn(species)
+    at = bulk(species)
+    at = repeat(at, (2,2,2))
+    X = positions(at)
+    R = zeros(length(at), length(at))
+    for n = 1:length(at)
+        for m = n+1:length(at)
+            R[n,m] = norm(X[:,n] - X[:,m])
+        end
+    end
+    R[find(R .== 0)] = maximum(R[:])
+    rnn = minimum(R[:])
+end
 
 end

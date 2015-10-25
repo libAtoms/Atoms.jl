@@ -27,16 +27,34 @@ multiplies a 3 x N displacement vector with the preconditioner, while
 frc / precon
 ```
 computes the preconditioned force vector from a 3 x N raw force vector
+
+## Ramblings
+
+* maybe this code should be slightly refactored to allow any object that
+implements *, /, \ to be a preconditioner?
 """
 module AtPrecon
 
 
 using AtomsInterface, MatSciPy, ASE, Potentials
 
-export init!, update!
+import Base./, Base.*, Base.dot, Base.\
+
+export init!, update!, *, dot, /, \
+export ExpPrecon, IdPrecon
 
 
 
+"""
+Identity preconditioner: does absolutely nothing.
+"""
+type IdPrecon <: Preconditioner
+end
+init!(precon::IdPrecon, varargs...) = nothing
+update!(precon::IdPrecon, varargs...) = nothing
+*(precon::IdPrecon, x) = copy(x)
+/(x, precon::IdPrecon) = copy(x)
+\(precon::IdPrecon, x) = copy(x)
 
 
 """
@@ -56,8 +74,7 @@ type PairPrecon{T <: PairPotential} <: Preconditioner
     r0::Float64     # approximate NN distance
     Rc::Float64     # cut-off
     cstab::Float64  # stabilisation constant
-    pupdate::Float64  # after how much movement does the precon need updating
-                      # given as a factor of r0
+    rupdate::Float64  # after how much movement does the precon need updating
     # solver::Symbol
     arrays::Dict
 end
@@ -77,22 +94,22 @@ Constructors:
 typealias ExpPrecon PairPrecon{SimpleExponential}
 
 
-ExpPrecon(; A=3.0, r0=2.5
-          mu=1.0, Rc=4.5, cstab=0.0, rupdate=0.2 ) =
-              PairPrecon( SimpleExponential(1.0, -A, r0),
-                          mu, r0, Rc, cstab, pupdate, Dict() )
+ExpPrecon(; A=3.0, r0=2.5,
+          mu=1.0, Rc=4.5, cstab=0.0, rupdate=0.33*r0 ) =
+              PairPrecon( SimpleExponential(-1.0, -A, r0),
+                          mu, r0, Rc, cstab, rupdate, Dict() )
 
 ExpPrecon(at::AbstractAtoms, calc::AbstractCalculator;
           mask = ones(3), kwargs... ) =
-              init!( ExpPrecon( kwargs... ), at, calc; mask=mask)
+              init!( ExpPrecon( kwargs... ), at, calc; mask=mask )
 
 
 "pure matrix assembly component"
 function assemble!(precon, at)
     i, j, r = MatSciPy.neighbour_list(at, "ijd", precon.Rc)
     c = precon.mu * precon.pp(r)
-    P = sparse(i, j, r, (length(at), length(at)))
-    P += diagm( - sum(P, 1) + precon.mu * precon.cstab )
+    P = sparse(i, j, c, length(at), length(at))
+    P += diagm( vec(- sum(P, 1) + precon.mu * precon.cstab) )
     return P
 end
 
@@ -105,21 +122,22 @@ end
 
   hfd: finite difference step (relative to r0)
 """
-function estimate_mu_factor(at, calc, P, mask; hfd = 1e-3)
+function estimate_mu_factor(precon, at, calc, P, mask; hfd = 1e-3)
     X = positions(at)
     Linv = 2*pi ./ diag(cell(at))
     if length(size(mask)) == 1
-        mask = diag(mask)
+        mask = diagm(mask)
     end
     # compute the two force vectors and the RHS <Pv, v>
-    V = hfd * precon.r0 * mask * sin(L .* X)
+    V = hfd * precon.r0 * mask * sin(Linv .* X)
     frc = forces(at, calc)
     set_positions!(at, X + V)
     frcV = forces(at, calc)
     # return the good mu
     new_mu = vecdot(frc - frcV, V) / vecdot(V * P, V)
-    if mu <= 1e-10
-        error("""mu < 1e-10 : this probably means the test configuration is
+    if new_mu <= 1e-10
+        error("""estimate_mu_factor: 
+              mu = $(new_mu) < 1e-10 : this probably means the test configuration is
               (long-wavelength-)unstable; either give me a better configuration 
               for  initialising the preconditioner, or construct a good one by
               hand. A lattice ground state is normally a safe choice.
@@ -153,7 +171,7 @@ function init!(precon::PairPrecon, at::AbstractAtoms, calc::AbstractCalculator;
     P = assemble!(precon, at)
     precon.cstab = cstab
     # do the mu - test, and adjust the mu parameter
-    precon.mu *= estimate_mu_factor(at, calc, P, mask)
+    precon.mu *= estimate_mu_factor(precon, at, calc, P, mask)
     # assemble again, by calling update!
     update!(precon, at)
     return precon
@@ -168,8 +186,8 @@ function need_update(precon, at)
     # also update there is sufficient movement.
     #    NOTE: this is very crude and should be able to potentially take
     #          periodicity into account  (TODO)    
-    elseif ( max(sumabs2(get_array(precon, :X) - positions(at), 1), 2) >
-             (precon.pupdate*precon.r0)^2 )
+    elseif ( maximum(sumabs2(get_array(precon, :X) - positions(at), 1))
+             > precon.rupdate^2 )
         return true
     end
     return false
@@ -187,13 +205,13 @@ function update!(precon::PairPrecon, at::ASEAtoms)
     assert_cubic(at)
     if need_update(precon, at)
         P = assemble!(precon, at)
-        set_array(precon, P, :P)
-        set_array(precon, lufact(P), :solver)
+        set_array!(precon, :P, P)
+        set_array!(precon, :solver, lufact(P))
+        set_array!(precon, :X, positions(at))
     end
 end
 
 
-import Base./, Base.*, Base.dot
 
 
 # multiply with precon
@@ -201,13 +219,14 @@ import Base./, Base.*, Base.dot
 # precon-dot product
 dot(frc::Matrix, precon::PairPrecon) = vecdot(frc * precon, frc)
 # precon-solver for N x 1 array
-\(precon::PairPrecon, v::AbstractVector) = get_array(precon, :solver) \ v
+\(precon::PairPrecon, v) = get_array(precon, :solver) \ v
 # precon-solver for 3 x N force arrays
-function /(frc::Matrix, precon::PairPrecon)
+function /(frc, precon::PairPrecon)
     pfrc = zeros(size(frc))
     for n = 1:size(frc, 1)
-        pfrc[n,:] = get_array(precon, :solver) \ slice(frc, n, :)
+        pfrc[n,:] = precon \ slice(frc, n, :)
     end
+    return pfrc
 end
 
 
