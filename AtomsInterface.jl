@@ -16,7 +16,7 @@ export AbstractAtoms,
 positions, set_positions!,
 neighbours, set_neighbours!,
 AbstractCalculator,
-potential_energy, forces,
+potential_energy, forces, potential_energy_d,
 r_sum, r_dot,
 Preconditioner,
 set_array!, get_array,
@@ -270,6 +270,8 @@ Alternatively, one can call the simplified form
 provided that a has an attached calculator is avilable."""
 @protofun forces(a::AbstractAtoms, c::AbstractCalculator)
 forces(a::AbstractAtoms) = forces(a, calculator(a))
+
+potential_energy_d(a,c) = - forces(a, c)
 
 
 # """Returns the  gradient of the total energy in the format `3 x length`.

@@ -175,12 +175,12 @@ cutoff(p::ZeroPairPotential) = 0.0
 
 "`ZeroSitePotential`: Site potential V(R) = 0.0"
 type ZeroSitePotential <: SitePotential end
-evaluate(p::ZeroSitePotential, r) = 0.0
-evaluate_d(p::ZeroSitePotential, r) = zeros(size(r))
+evaluate(p::ZeroSitePotential, R) = 0.0
+evaluate_d(p::ZeroSitePotential, R) = zeros(size(R))
 evaluate(p::ZeroSitePotential, r, R) = 0.0
-evaluate_d(p::ZeroSitePotential, r, R) = zeros(size(r))
-grad(p::ZeroSitePotential, r) = zeros(3,1,1,size(R,2)) 
-grad(p::ZeroSitePotential, r, R) = zeros(3,1,1,size(R,2)) 
+evaluate_d(p::ZeroSitePotential, r, R) = zeros(size(R,1),1,1,size(R,2))
+grad(p::ZeroSitePotential, R) = zeros(3,1,1,size(R,1))
+grad(p::ZeroSitePotential, r, R) = zeros(3,1,1,size(R,2))
 cutoff(p::ZeroSitePotential) = 0.0
 
 
