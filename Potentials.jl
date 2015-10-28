@@ -23,6 +23,7 @@ export LennardJonesPotential, SWCutoff, ShiftCutoff, EAMPotential
 export SimpleExponential, GuptaEmbed, GuptaPotential
 export evaluate, evaluate_d, evaluate_dd, @D, @DD, @GRAD, grad
 export cutoff, MorsePotential, ZeroSitePotential, ZeroPairPotential
+export evaluate_d!, grad!
 
 export @D2
 
@@ -58,6 +59,32 @@ typically a pair potential, where `r` may be a scalar or an array (of scalars)
 evaluate(p::PairPotential, r, R) = evaluate(p, r)
 evaluate_d(p::PairPotential, r, R) = evaluate_d(p, r)
 evaluate_dd(p::PairPotential, r, R) = evaluate_dd(p, r)
+
+# prototype-in-place operations
+"""
+# evaluate_d!(p, r, R, dP)
+
+in-place variant of `evaluate_d`
+"""
+function evaluate_d!(p, r, R, dP)
+    d = evaluate_d(p, r, R)
+    for ind in eachindex(d)
+        dP[ind] = d[ind]
+    end
+end
+
+"""
+# evaluate_d!(p, r, R, dP)
+
+in-place variant of `grad`
+"""
+function grad!(p, r, R, G)
+    g = grad(p, r, R)
+    for ind in eachindex(g)
+        G[ind] = g[ind]
+    end
+end
+
 
 # but for grad, this doesn't work. the default here are given by
 """`grad(pp::PairPotential, R)`: if `R` is a 3 x N matrix (or 3 -vector) then

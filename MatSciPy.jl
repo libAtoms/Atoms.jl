@@ -209,22 +209,30 @@ type AtomIteratorState
     neiglist::NeighbourList
     n::Int         # site index
     m::Int         # index on where in neiglist we are
+    i::Vector{Int32}
+    j::Vector{Int32}
+    d::Vector{Float64}
+    D::Matrix{Float64}
 end
 
 import Base.start
-start(s::Sites) = AtomIteratorState(s.neiglist, 0, 0)
+start(s::Sites) = AtomIteratorState(s.neiglist, 0, 0,
+                                    s.neiglist.Q['i'],
+                                    s.neiglist.Q['j'],
+                                    s.neiglist.Q['d'],
+                                    s.neiglist.Q['D'])
 
 import Base.done
 done(::Sites, state::AtomIteratorState) =
     (size(state.neiglist.Q['X'],2) == state.n)
 
+
 import Base.next
 function next(::Sites, state::AtomIteratorState)
     state.n += 1
     m0 = state.m
-    i = state.neiglist.Q['i']
-    len_i = length(i)
-    while i[state.m+1] <= state.n
+    len_i = length(state.i)
+    while state.i[state.m+1] <= state.n
         state.m += 1
         if state.m == len_i; break; end
     end
@@ -233,15 +241,14 @@ function next(::Sites, state::AtomIteratorState)
     else
         ### TODO: allow arbitrary returns! ###
         return (state.n,
-                state.neiglist.Q['j'][m0+1:state.m],
-                state.neiglist.Q['d'][m0+1:state.m],
-                state.neiglist.Q['D'][m0+1:state.m, :]'), state
+                state.j[m0+1:state.m],
+                state.d[m0+1:state.m],
+                state.D[m0+1:state.m, :]'), state
     end
-
+    
     # TODO: in the above loop we could also remove all those neighbours
     #       which are outside the cutoff?
 end
-
 
 
 

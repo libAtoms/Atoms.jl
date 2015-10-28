@@ -33,7 +33,7 @@ finite difference test for consistency of `potentialenergy` with
 function test_potentialenergy(calc::AbstractCalculator, at::AbstractAtoms)
     X = positions(at)
     f = potential_energy(at, calc)
-    df = potential_energy_d(at, calc)[:]
+    df = -forces(at, calc)[:]  # potential_energy_d(at, calc)[:]
     println("-----------------------------")
     println("  p | error ")
     println("----|------------------------")
