@@ -86,6 +86,18 @@ function neighbour_list(atoms::ASEAtoms, quantities::AbstractString,
    return tuple(results...)
 end
 
+function neighbour_list(atoms::ASEAtoms, cutoff::Float64)
+    results = matscipy_neighbours.neighbour_list("ijdDS", atoms.po, cutoff)
+    i=results[1]::Vector{Int32}
+    j=results[2]::Vector{Int32}
+    r=results[3]::Vector{Float64}
+    R=results[4]::Matrix{Float64}
+    S=results[5]::Matrix{Int32}
+    i += 1
+    j += 1
+    return i, j, r, R, S
+end
+
 
 """
 A basic wrapper around the `neighbour_list` builder. 
@@ -114,27 +126,34 @@ and automatically calls `build!(nlist, at)` to initialise the neighbourlist.
 """
 type NeighbourList
     cutoff::Float64
-    quantities::ASCIIString   # remember which quantities the user wants
     skin::Float64
-    Q::Dict{Char, Any}
+    i::Vector{Int32}
+    j::Vector{Int32}
+    r::Vector{Float64}
+    R::Matrix{Float64}
+    S::Matrix{Int32}
+    X::Matrix{Float64}
 end
 
 # overload getindex to allow direct access to quantities stored in Q.
 Base.getindex(nlist::NeighbourList, key) = nlist.Q[key]
 
 # empty constructor
-function NeighbourList(cutoff::Float64; quantities="ijdD", skin=0.5)
-    if quantities[1:2] != "ij"
-        error("NeighbourList: quantities must start with \"ij\"")
-    end
-    NeighbourList(cutoff, quantities, skin, Dict{Char, Any}())
-end
+NeighbourList(cutoff::Float64; skin=0.0) =
+    NeighbourList(cutoff, skin,
+                  Int32[], Int32[], Float64[],
+                  Matrix{Float64}(), Matrix{Int32}(),
+                  Matrix{Float64}())
 
-# cosntruct from ASEAtoms
-function NeighbourList(cutoff::Float64, at::ASEAtoms; kwargs...)
-    nlist = NeighbourList(cutoff; kwargs...)
-    return build!(nlist, at)
-end
+# construct from ASEAtoms
+NeighbourList(cutoff::Float64, at::ASEAtoms; kwargs...) =
+    build!(NeighbourList(cutoff; kwargs...), at)
+NeighbourList(at::ASEAtoms, cutoff::Float64; kwargs...) =
+    NeighbourList(cutoff, at; kwargs...)
+
+import Base.length
+"returns the number of (i,j) pairs in the raw neighbourlist"
+length(nlist::NeighbourList) = length(nlist.i)
 
 # build the neighbourlist
 """`build!(nlist::NeighbourList, at::ASEAtoms) -> NeighbourList
@@ -142,39 +161,36 @@ end
 Forces a rebuild of the neighbourlist.
 """
 function build!(nlist::NeighbourList, at::ASEAtoms)
-    # by deleting the "X" key (if it exists) we force update! to
-    # rebuild
-    delete!(nlist.Q, 'X')
+    # by deleting the "X" (if it exists) we force update! to rebuild
+    nlist.X = Matrix{Float64}()
     return update!(nlist, at)
 end
 
-# build the neighbourlist
+
+# update / build the neighbourlist
 function update!(nlist::NeighbourList, at::ASEAtoms)
     ####### TODO: use reference for better performance? ######
     Xnew = positions(at)
     # if nlist.Q contains an X array, then we should check whether
     # the new X array has moved enough to rebuild
-    if haskey(nlist.Q, 'X')
+    if ~isempty(nlist.X)
         ##### TODO: this is AWFUL; need to make this a periodic distance! #####
-        if norm(Xnew[:]-nlist.Q['X'][:], Inf) < nlist.skin / 2
+        if vecnorm(Xnew - nlist.X, Inf) < nlist.skin / 2
             return nlist
         end
     end
-
+    
     # we decided that we need to rebuild
-    nlist.Q['X'] = Xnew
-    qlist = neighbour_list(at, nlist.quantities, nlist.cutoff+nlist.skin)
-    for (c, q) in zip(nlist.quantities, qlist)
-        nlist.Q[c] = q
-    end
-
+    nlist.X = Xnew
+    nlist.i, nlist.j, nlist.r, nlist.R, nlist.S =
+        neighbour_list(at, nlist.cutoff+nlist.skin)
+    
     return nlist
 end
 
 
-
-# implementation of an iterator
-
+######################################################################
+#### implementation of an iterator
 
 """`Sites`: helper to define an iterator over sites. Usage:
 ```{julia}
@@ -195,6 +211,7 @@ for n, ... in Sites(at, rcut)
 where `at` is an `ASEAtoms` object and `rcut` the desired cut-off radius.
 """
 
+
 type Sites
     neiglist::NeighbourList
 end
@@ -206,44 +223,37 @@ Sites(at::ASEAtoms, rcut) = Sites(NeighbourList(at, rcut))
 sites via the `MatSciPy.NeighbourList`; see `?Sites`.
 """
 type AtomIteratorState
-    neiglist::NeighbourList
     n::Int         # site index
     m::Int         # index on where in neiglist we are
-    i::Vector{Int32}
-    j::Vector{Int32}
-    d::Vector{Float64}
-    D::Matrix{Float64}
 end
 
 import Base.start
-start(s::Sites) = AtomIteratorState(s.neiglist, 0, 0,
-                                    s.neiglist.Q['i'],
-                                    s.neiglist.Q['j'],
-                                    s.neiglist.Q['d'],
-                                    s.neiglist.Q['D'])
+start(s::Sites) = AtomIteratorState(0, 0)
 
 import Base.done
-done(::Sites, state::AtomIteratorState) =
-    (size(state.neiglist.Q['X'],2) == state.n)
+done(s::Sites, state::AtomIteratorState) =
+    (size(s.neiglist.X, 2) == state.n)
 
 
 import Base.next
-function next(::Sites, state::AtomIteratorState)
+function next(s::Sites, state::AtomIteratorState)
     state.n += 1
     m0 = state.m
-    len_i = length(state.i)
-    while state.i[state.m+1] <= state.n
+    len_i = length(s.neiglist)
+    while s.neiglist.i[state.m+1] <= state.n
         state.m += 1
         if state.m == len_i; break; end
     end
     if m0 == state.m
-        return (state.n, [], [], []), state
+        return (state.n, Int32[], Float64[], Matrix{Float64}()), state
     else
+        m0
         ### TODO: allow arbitrary returns! ###
-        return (state.n,
-                state.j[m0+1:state.m],
-                state.d[m0+1:state.m],
-                state.D[m0+1:state.m, :]'), state
+        ret_tuple = (state.n,
+                     s.neiglist.j[m0+1:state.m],
+                     s.neiglist.r[m0+1:state.m],
+                     s.neiglist.R[m0+1:state.m, :]')
+        return ret_tuple, state
     end
     
     # TODO: in the above loop we could also remove all those neighbours
