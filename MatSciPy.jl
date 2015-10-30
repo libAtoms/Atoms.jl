@@ -48,7 +48,7 @@ importall AtomsInterface
 # end
 
 
-export update!, Sites, NeighbourList
+export update!, Sites, NeighbourList, Bonds
 export potential_energy, potential_energy_d, forces
 export cutoff
 export simple_binsum
@@ -190,7 +190,38 @@ end
 
 
 ######################################################################
-#### implementation of an iterator
+#### implementation of some iterators
+
+
+import Base.start
+import Base.done
+import Base.next
+
+
+"""
+# `type Bonds`
+
+Basic iterator over all pairwise bonds. Usage:
+
+```
+for (i, j, r, R) in Bonds(atm)
+   # do something with r the length and R the directional vector
+   # and i, j the indices of the bonds (R points to j)
+end
+```
+
+Can also be instantiated with `Bonds(neiglist)`
+"""
+type Bonds
+    nlist::NeighbourList
+end
+Bonds(at::ASEAtoms, rcut) = Bonds(NeighbourList(at, rcut))
+start(b::Bonds) = 1::Int
+done(b::Bonds, s::Int) = (s == length(b.nlist.i)+1)
+next(b::Bonds, s::Int) = (b.nlist.i[s], b.nlist.j[s], b.nlist.r[s],
+                          copy(slice(b.nlist.R,s,:)),
+                          copy(slice(b.nlist.S,s,:)) ), s+1
+
 
 """`Sites`: helper to define an iterator over sites. Usage:
 ```{julia}
@@ -210,8 +241,6 @@ for n, ... in Sites(at, rcut)
 ```
 where `at` is an `ASEAtoms` object and `rcut` the desired cut-off radius.
 """
-
-
 type Sites
     neiglist::NeighbourList
 end
@@ -227,15 +256,8 @@ type AtomIteratorState
     m::Int         # index on where in neiglist we are
 end
 
-import Base.start
 start(s::Sites) = AtomIteratorState(0, 0)
-
-import Base.done
-done(s::Sites, state::AtomIteratorState) =
-    (size(s.neiglist.X, 2) == state.n)
-
-
-import Base.next
+done(s::Sites, state::AtomIteratorState) = (size(s.neiglist.X, 2) == state.n)
 function next(s::Sites, state::AtomIteratorState)
     state.n += 1
     m0 = state.m
@@ -244,18 +266,13 @@ function next(s::Sites, state::AtomIteratorState)
         state.m += 1
         if state.m == len_i; break; end
     end
-    if m0 == state.m
-        return (state.n, Int32[], Float64[], Matrix{Float64}()), state
-    else
-        m0
-        ### TODO: allow arbitrary returns! ###
-        ret_tuple = (state.n,
-                     s.neiglist.j[m0+1:state.m],
-                     s.neiglist.r[m0+1:state.m],
-                     s.neiglist.R[m0+1:state.m, :]')
-        return ret_tuple, state
-    end
-    
+    ### TODO: allow arbitrary returns! ### (really necessary? maybe via macro)
+    ret_tuple = (state.n,
+                 s.neiglist.j[m0+1:state.m],
+                 s.neiglist.r[m0+1:state.m],
+                 s.neiglist.R[m0+1:state.m, :]',
+                 s.neiglist.S[m0+1:state.m, :]')
+    return ret_tuple, state    
     # TODO: in the above loop we could also remove all those neighbours
     #       which are outside the cutoff?
 end
