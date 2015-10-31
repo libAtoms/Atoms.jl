@@ -182,8 +182,10 @@ function update!(nlist::NeighbourList, at::ASEAtoms)
     
     # we decided that we need to rebuild
     nlist.X = Xnew
-    nlist.i, nlist.j, nlist.r, nlist.R, nlist.S =
+    nlist.i, nlist.j, nlist.r, R, S =
         neighbour_list(at, nlist.cutoff+nlist.skin)
+    nlist.R = R'
+    nlist.S = S'
     
     return nlist
 end
@@ -219,8 +221,8 @@ Bonds(at::ASEAtoms, rcut) = Bonds(NeighbourList(at, rcut))
 start(b::Bonds) = 1::Int
 done(b::Bonds, s::Int) = (s == length(b.nlist.i)+1)
 next(b::Bonds, s::Int) = (b.nlist.i[s], b.nlist.j[s], b.nlist.r[s],
-                          copy(slice(b.nlist.R,s,:)),
-                          copy(slice(b.nlist.S,s,:)) ), s+1
+                          copy(slice(b.nlist.R,:,s)),
+                          copy(slice(b.nlist.S,:,s)) ), s+1
 
 
 """`Sites`: helper to define an iterator over sites. Usage:
@@ -270,8 +272,8 @@ function next(s::Sites, state::AtomIteratorState)
     ret_tuple = (state.n,
                  s.neiglist.j[m0+1:state.m],
                  s.neiglist.r[m0+1:state.m],
-                 s.neiglist.R[m0+1:state.m, :]',
-                 s.neiglist.S[m0+1:state.m, :]')
+                 slice(s.neiglist.R,:,m0+1:state.m),
+                 slice(s.neiglist.S,:,m0+1:state.m))
     return ret_tuple, state    
     # TODO: in the above loop we could also remove all those neighbours
     #       which are outside the cutoff?

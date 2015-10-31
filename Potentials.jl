@@ -23,7 +23,7 @@ export LennardJonesPotential, SWCutoff, ShiftCutoff, EAMPotential
 export SimpleExponential, GuptaEmbed, GuptaPotential
 export evaluate, evaluate_d, evaluate_dd, @D, @DD, @GRAD, grad
 export cutoff, MorsePotential, ZeroSitePotential, ZeroPairPotential
-export evaluate_d!, grad!
+export evaluate_d!, grad!, evaluate!
 
 export @D2
 
@@ -71,6 +71,15 @@ function evaluate_d!(p, r, R, dP)
     for ind in eachindex(d)
         dP[ind] = d[ind]
     end
+end
+
+"""# evaluate!(p, r, R, P)
+
+in-place variant of `evaluate`.
+"""
+function evaluate!(p, r, R, P)
+    P[:] = evaluate(p, r, R)
+    return P
 end
 
 """
