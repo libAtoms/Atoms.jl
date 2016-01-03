@@ -24,8 +24,31 @@ export SimpleExponential, GuptaEmbed, GuptaPotential
 export evaluate, evaluate_d, evaluate_dd, @D, @DD, @GRAD, grad
 export cutoff, MorsePotential, ZeroSitePotential, ZeroPairPotential
 export evaluate_d!, grad!, evaluate!
+export evaluate_fd!, evaluate_fd2!, evaluate_fd3!
 
 export @D2
+
+# HJ: add empty function fro derivatives by FD ------------
+
+function evaluate_fd!(p, R, dP)
+    for ind in eachindex(dP)
+        dP[ind] = 0.0
+    end
+end
+
+function evaluate_fd2!(p, R, dP)
+    for ind in eachindex(dP)
+        dP[ind] = 0.0
+    end
+end
+
+function evaluate_fd3!(p, R, dP)
+    for ind in eachindex(dP)
+        dP[ind] = 0.0
+    end
+end
+# ----------------------------------------------------------
+
 
 # some constants used with the SWCutoff
 const _eps_ = eps()
