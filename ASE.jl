@@ -139,6 +139,13 @@ assert_cubic(at::ASEAtoms) =
                                        asserted: cell = $(cell(at))""")
 
 
+"""delete_atom"""->
+function delete_atom!(at::ASEAtoms, n::Integer)
+    at.po[:__delitem__](n-1)
+    return at
+end
+
+
 ############################################################
 ### Some additional useful functionality that ASE
 ### provides
