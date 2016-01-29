@@ -11,7 +11,6 @@ or within abstract frameworks.
 ### Types
 
 
-
 """
 module Potentials
 
@@ -329,8 +328,6 @@ ShiftCutoff(pp, Rc) = ShiftCutoff(pp, Rc, pp(Rc))
 
 
 
-
-
 #########################################################
 ###         Lennard-Jones potential
 
@@ -374,7 +371,6 @@ end
     p.A * exp( p.B * (r/p.r0 - 1.0) )
 @inline evaluate_d(p::SimpleExponential, r) =
     p.A*p.B/p.r0 * exp( p.B * (r/p.r0 - 1.0) )
-
 
 
 #########################################################

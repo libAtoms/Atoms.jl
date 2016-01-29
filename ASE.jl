@@ -99,7 +99,10 @@ Sets the position array in `at`; Note that `p` must be 3 x N
 (Atoms.jl convention), and is automatically converted to the N x 3 array
 that ASE expects.
 """
-set_positions!(a::ASEAtoms, p::Array{Float64, 2}) = a.po[:set_positions](p')
+function set_positions!(a::ASEAtoms, p::Array{Float64, 2})
+    a.po[:set_positions](p')
+    return a
+end
 
 
 import Base.length
@@ -139,7 +142,7 @@ assert_cubic(at::ASEAtoms) =
                                        asserted: cell = $(cell(at))""")
 
 
-"""delete_atom"""->
+"delete and atom"
 function delete_atom!(at::ASEAtoms, n::Integer)
     at.po[:__delitem__](n-1)
     return at
