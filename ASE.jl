@@ -35,7 +35,7 @@ export get_cell, set_cell!
 export set_calculator, get_forces, get_potential_energy, get_stress
 export repeat, bulk, length
 export ASENeighborList, get_neighbors, neighbors
-export get_cell, cell, set_pbc!, iscubic, assert_cubic
+export get_cell, cell, set_pbc!, iscubic, assert_cubic, delete_atom!
 
 
 using PyCall
