@@ -4,6 +4,7 @@ export gpr, CovG, CovL, CovGsin, CovLsin, CovDot, CovDotWeight
 
 CovG = ( (x1, x2, sig::Float64) -> exp(- sumabs2(x1-x2)/(2.0*sig^2)))
 CovGsin = ( (x1, x2, sig::Float64) -> exp(- 2.0*sumabs2(sin((x1-x2)/2.0))/sig^2))
+CovGsin1 = ( (x1, x2, sig::Float64) -> exp(- 2.0*sumabs2(sin((x1[1]-x2[1])/2.0))/(4.0*sig)^2)*exp(- sumabs2(x1[2:end]-x2[2:end])/(2.0*sig^2)))
 CovL = ( (x1, x2, sig::Float64) -> exp(- sumabs(x1-x2)/sig))
 CovLsin = ( (x1, x2, sig::Float64) -> exp(- sumabs(sin((x1-x2)/2.0))/sig))
 CovDot = ( (x1, x2, sig::Float64) -> (x1 ⋅ x2)^sig)
