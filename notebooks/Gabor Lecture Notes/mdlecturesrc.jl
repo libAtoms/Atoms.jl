@@ -62,14 +62,19 @@ r0 = 0.96
 h2o_p0 = [0 0 0 ; r0 0 0 ; r0*cos(θ0) r0*sin(θ0) 0]
 
 function make_h2o(p=[0.0 0.0 0.0])
-    h2o = quippy.Atoms(n=3, lattice=[10 0 0 ; 0 10 0 ; 0 0 10], numbers=[8,1,1], positions=h2o_p0+repeat(p,outer=[3,1]));
+    h2o = quippy.Atoms(n=3, lattice=[20 0 0 ; 0 20 0 ; 0 0 20], numbers=[8,1,1], positions=h2o_p0+repeat(p,outer=[3,1]));
 end
 
-function make_h4o2(p = [0.0 0.0 0.0])
+function make_h4o2(p = [0.0 0.0 0.0]; optim=false)
     h4o2 = make_h2o(p)
     h2o = make_h2o(p+[2.5 0 0]) 
     h4o2[:add_atoms](h2o)
 
+    if optim
+        h4o2[:rattle](0.1)
+        res = optimize(tip3p.potential, (p,s)->s[:] = tip3p.gradient(p), vec(h4o2[:get_positions]()'), ftol=1e-4, grtol=1e-2)
+        h4o2[:set_positions](reshape(res.minimum, (3,6))')
+    end
     h4o2
 end
 
@@ -91,13 +96,75 @@ end
 
 # velocity Verlet LAngevin integrator
 
-function velocityVerletLangevin!(q::Vector{Float64}, p::Vector{Float64}, Fq::Vector{Float64}, F, m::Vector{Float64}, h::Float64, kT::Float64, gamma::Float64, ph2::Vector{Float64}, qh2::Vector{Float64})
-    ph2[:] = p + h/2*Fq
-    qh2[:] = q + h/2*ph2./m
-    ph2[:] = exp(-gamma*h)*ph2 + sqrt(kT*(1-exp(-2*gamma*h)))*randn(length(q)).*sqrt(m)
-    q[:]  = qh2 + h/2*ph2./m
+const kB = 8.6173324e-5 # Boltzmann constant in eV/K
+
+function velocityVerletLangevin!(q::Vector{Float64}, p::Vector{Float64}, Fq::Vector{Float64}, F, m::Vector{Float64}, h::Float64, T::Float64, gamma::Float64, ph2::Vector{Float64}, qh2::Vector{Float64}, r::Vector{Float64})
+    N = length(q)
+    r[:] = randn(N)
+    expmgammah = exp(-gamma*h)
+    sqrtkBT1mexpm2gammah = sqrt(kB*T*(1-exp(-2.0*gamma*h)))
+    @inbounds @simd for i=1:N
+        ph2[i] = p[i] + (0.5*h)*Fq[i]
+        qh2[i] = q[i] + (0.5*h)*ph2[i]/m[i]
+        ph2[i] = expmgammah*ph2[i] + sqrtkBT1mexpm2gammah*r[i]*sqrt(m[i])
+        q[i]  = qh2[i] + (0.5*h)*ph2[i]/m[i]
+    end
     Fq[:] = F(q)
-    p[:]  = ph2 + h/2*Fq
+    @inbounds @simd for i=1:N
+        p[i]  = ph2[i] + (0.5*h)*Fq[i]
+    end
     return
 end
-    ;
+
+
+# water dimer dissociation curve
+function water_dimer_dissoc()
+    r = 2.3:0.005:8.0
+    h4o2 = make_h4o2(optim=true)
+    p0 = h4o2[:get_positions]()
+    p = copy(p0)
+    dOO = p0[4,:]- p0[1,:] 
+    Edim_tip3p = zeros(r)
+    for i=1:length(r)
+        p[4:6,:] = p0[4:6,:] + repeat((r[i]/norm(dOO)-1.0)*dOO, outer=[3,1])
+        Edim_tip3p[i] = tip3p.potential(vec(p'))
+    end
+    r, Edim_tip3p
+end
+
+
+
+function water_hexamer_dynamics(;T::Float64, Nsteps=1000 Nsubsamp=1 )
+    h12o6 = make_h12o6()
+
+    h=0.5
+    m = repeat(h12o6[:get_masses](), inner=[3])*quippy.units[:MASSCONVERT] #masses to conform to eV, A, fs units
+    q = vec(h12o6[:get_positions]()')
+    Fq = -tip3p.gradient(q)
+    p = zeros(q) ; tmp1 = zeros(q); tmp2 = zeros(q); tmp3 = zeros(q)
+ 
+    Rg = zeros(Nsteps÷Nsubsamp); w1z = zeros(Nsteps÷Nsubsamp); n=1
+
+    println("starting $Nsteps iterations")
+    for i=1:Nsteps
+        if i%Nsubsamp == 1
+            Rg[n] = h12o6_Rg(q)
+            w1z[n] = q[6]-q[3]
+            n = n+1
+        end
+        if i%10000 == 1
+            println("iteration $i")
+        end
+        velocityVerletLangevin!(q, p, Fq, q->(-tip3p.gradient(q)), m, h, T, 0.5, tmp1, tmp2, tmp3)   
+    end
+    println("finished $Nsteps iterations")
+    Rg,w1z
+end
+
+function mean_err_corr(x; acorr_limit=0)
+    r = (acorr_limit == 0 ? (1:length(x)÷2) : (1:acorr_limit) )
+         
+    C = fftshift(xcorr(x - mean(x), x - mean(x)))[r]
+    mean(x), std(x)/sqrt(length(x)/(1+sum(C/C[1])))
+end
+;
