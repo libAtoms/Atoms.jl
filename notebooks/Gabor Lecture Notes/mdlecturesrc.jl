@@ -98,7 +98,7 @@ end
 
 const kB = 8.6173324e-5 # Boltzmann constant in eV/K
 
-function velocityVerletLangevin!(q::Vector{Float64}, p::Vector{Float64}, Fq::Vector{Float64}, F, m::Vector{Float64}, h::Float64, T::Float64, gamma::Float64, ph2::Vector{Float64}, qh2::Vector{Float64}, r::Vector{Float64})
+function velocityVerletLangevin!(q::Vector{Float64}, p::Vector{Float64}, Fq::Vector{Float64}, F, m::Vector{Float64}, h::Float64, T::Float64, gamma::Float64, ph2::Vector{Float64}, qh2::Vector{Float64}, r::Vector{Float64}; project=false, project_func=(f->f))
     N = length(q)
     r[:] = randn(N)
     expmgammah = exp(-gamma*h)
@@ -107,9 +107,18 @@ function velocityVerletLangevin!(q::Vector{Float64}, p::Vector{Float64}, Fq::Vec
         ph2[i] = p[i] + (0.5*h)*Fq[i]
         qh2[i] = q[i] + (0.5*h)*ph2[i]/m[i]
         ph2[i] = expmgammah*ph2[i] + sqrtkBT1mexpm2gammah*r[i]*sqrt(m[i])
+    end
+    if project
+        ph2[:] = project_func(ph2)
+    end
+    @inbounds @simd for i=1:N
         q[i]  = qh2[i] + (0.5*h)*ph2[i]/m[i]
     end
-    Fq[:] = F(q)
+    if project == false
+        Fq[:] = F(q)
+    else
+        Fq[:] = project_func(F(q))
+    end
     @inbounds @simd for i=1:N
         p[i]  = ph2[i] + (0.5*h)*Fq[i]
     end
@@ -134,7 +143,7 @@ end
 
 
 
-function water_hexamer_dynamics(;T::Float64, Nsteps=1000 Nsubsamp=1 )
+function water_hexamer_dynamics(;T::Float64=300.0, Nsteps=1000, Nsubsamp=1)
     h12o6 = make_h12o6()
 
     h=0.5
@@ -159,6 +168,52 @@ function water_hexamer_dynamics(;T::Float64, Nsteps=1000 Nsubsamp=1 )
     end
     println("finished $Nsteps iterations")
     Rg,w1z
+end
+
+function water_dimer_dynamics(;Temp::Float64=1.0, Nsteps=100, Nsave=0, fix_axes=false,
+                                constrainO2=false, OOdistance=3.0)
+
+    fproj = zeros(18)
+    const proj_components = [1,2,3,5,6,10,11,12]
+    
+    if constrainO2 == false
+        h4o2 = make_h4o2(optim=true)
+        project_force = (f -> f)
+    else
+        h4o2 = make_h2o()
+        h2o = make_h2o([OOdistance 0.0 0.0])
+        h4o2[:add_atoms](h2o)
+        project_force = (f -> (fproj[proj_components] = f[proj_components]; f[proj_components] = 0.0; f))
+    end
+    
+    q = vec(h4o2[:get_positions]()')
+
+    h=0.5            # time step
+    m = repeat(h4o2[:get_masses](), inner=[3])*quippy.units[:MASSCONVERT] #masses to conform to eV, A, fs units
+    Fq = project_force(-tip3p.gradient(q))
+    p = zeros(q); tmp1 = zeros(q); tmp2 = zeros(q); tmp3 = zeros(q);
+    OO = zeros(Nsteps);
+    
+    Nsave > 0 ? (traj = quippy.CInOutput("traj.xyz", quippy.OUTPUT)) : 0
+    
+    for i=1:Nsteps
+        if constrainO2 == false
+            OO[i] = norm(q[1:3]-q[10:12])
+        else
+            OO[i] = fproj[10]
+        end
+        if constrainO2 == false
+            velocityVerletLangevin!(q, p, Fq, q->(-tip3p.gradient(q)), m, h, Temp, 0.1, tmp1, tmp2, tmp3) 
+        else
+            velocityVerletLangevin!(q, p, Fq, q->(-tip3p.gradient(q)), m, h, Temp, 0.1, tmp1, tmp2, tmp3; project=true, project_func = project_force)
+        end
+            
+        if Nsave> 0 && (i-1)%Nsave == 0
+            h4o2[:set_positions](reshape(q, (3,6))') ; traj[:write](h4o2)
+        end 
+    end
+    Nsave > 0 ?  traj[:close]() : 0
+    return OO
 end
 
 function mean_err_corr(x; acorr_limit=0)
