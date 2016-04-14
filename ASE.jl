@@ -122,7 +122,8 @@ cell.
 """
 get_cell(at::ASEAtoms) = at.po[:get_cell]()
 "alias for `get_cell`"
-@inline cell(a::ASEAtoms) = get_cell(a::ASEAtoms)
+#@inline cell(a::ASEAtoms) = get_cell(a::ASEAtoms)
+cell(a::ASEAtoms) = get_cell(a::ASEAtoms)
 
 "counterpart for `get_cell` (not tested?)"
 set_cell!(a::ASEAtoms, p::Array{Float64,2}) = a.po[:set_cell](p)
