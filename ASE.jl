@@ -36,12 +36,13 @@ export set_calculator, get_forces, get_potential_energy, get_stress
 export repeat, bulk, length
 export ASENeighborList, get_neighbors, neighbors
 export get_cell, cell, set_pbc!, iscubic, assert_cubic, delete_atom!
-
+# export graphene_nanoribbon
 
 using PyCall
 @pyimport ase
 @pyimport ase.lattice as lattice
 @pyimport ase.calculators.neighborlist as ase_neiglist
+# @pyimport ase.build as build
 
 #################################################################
 ###  Wrapper for ASE Atoms object and its basic functionality
