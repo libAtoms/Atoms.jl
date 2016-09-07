@@ -117,7 +117,7 @@ set_pbc!(a::ASEAtoms, val) = (a.po[:pbc] = val)
 import Base.cell
 """`get_cell(at::ASEAtoms) = at.po[:get_cell]() -> Matrix`
 
-Alas for `ase.Atoms.get_cell()`; returns a matrix describing the computational
+Alias for `ase.Atoms.get_cell()`; returns a matrix describing the computational
 cell.
 """
 get_cell(at::ASEAtoms) = at.po[:get_cell]()
