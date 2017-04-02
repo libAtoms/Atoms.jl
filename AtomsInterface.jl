@@ -1,11 +1,11 @@
 
 """
-Add Documentation for `AtomsInterface`; at the moment just a collection of 
+Add Documentation for `AtomsInterface`; at the moment just a collection of
 notes.
 
-* Position arrays in `Atoms.jl` should always be 3 x N and modules ought 
+* Position arrays in `Atoms.jl` should always be 3 x N and modules ought
    to convert automatically
-* 
+*
 
 """
 module AtomsInterface
@@ -20,17 +20,10 @@ potential_energy, forces, potential_energy_d,
 r_sum, r_dot,
 Preconditioner,
 set_array!, get_array,
-maxforce
+maxforce,
+site_energy, site_forces
 
 
-
-
-# Lexicon.update! is something that many users will have installed, 
-try
-    import Lexicon.update!
-catch
-    nothing
-end
 
 
 
@@ -85,9 +78,9 @@ positions(a::AbstractAtoms) = get_positions(a)
 # """`AbstractAtomsX`: implementations of this abstract sub-type
 # *must* have a field `.X`, with d rows and nX columns, where nX is the
 # number of atoms and d the space dimension in which the atoms live, normally
-# d = 3.  With this guaranteed, much of the functionality of the 
+# d = 3.  With this guaranteed, much of the functionality of the
 # `AbstractAtoms` interface can already be implemented.
-# """ 
+# """
 # abstract AbstractAtomsX <: AbstractAtoms
 
 # # note: this is not part of the interface, but I am finding it very useful
@@ -151,8 +144,8 @@ neighbours(n, atm::AbstractAtoms; rcut=-1) = get_neighbours(n, atm; rcut=rcut)
 # DISCUSS: maybe it would be useful to also return the list of
 #          direction-vectors? It was probably computed anyhow?
 
-"""Returns `(Ineig, r)` where `Ineig is an integer vector with indices 
-of neighbour atoms of `n` and r the a Float vector with their distances.""" 
+"""Returns `(Ineig, r)` where `Ineig is an integer vector with indices
+of neighbour atoms of `n` and r the a Float vector with their distances."""
 @protofun get_neighbours(n::Integer, neigs::AbstractNeighbourList,
                          atm::AbstractAtoms; rcut=-1)
 
@@ -182,9 +175,9 @@ neighbours(n::Integer, neigs::AbstractNeighbourList,
 # """Returns a bare `Vector{T <: FloatingPoint}` object containing the degrees of
 # freedom describing the state of the simulation. This function should be
 # overloaded for concrete implementions of `AbstractAtoms` and
-# `AbstractConstraints`.  
+# `AbstractConstraints`.
 
-# Alternative wrapper function 
+# Alternative wrapper function
 #     get_dofs(atm::AbstractAtoms) = get_dofs(atm, get_constraints(atm))
 # """
 # @protofun get_dofs(a::AbstractAtoms, c::AbstractConstraints)
@@ -237,7 +230,7 @@ potential_energy(a::AbstractAtoms) =
 ## ==============================
 ## get_Es and has_Es   : site energy
 
-# """`site_energies(idx, a::AbstractAtoms, c::AbstractCalculator)`: 
+# """`site_energies(idx, a::AbstractAtoms, c::AbstractCalculator)`:
 # Returns an `Vector{Float64}` of site energies of a configuration of
 # atoms `a`, using the calculator `c`. If idx==[] (default), then *all*
 # site energies are returned, otherwise those corresponding to the list
@@ -339,5 +332,10 @@ For a 3 x N array `f`, return the maximum of `|f[:,n]|₂`.
 maxforce(f) = sqrt(maximum(sumabs2(f, 1)))
 
 
-end
+# site energy stuff
 
+@protofun site_energy(idx, atm::AbstractAtoms, calc::AbstractCalculator)
+
+@protofun site_forces(idx, atm::AbstractAtoms, calc::AbstractCalculator)
+
+end

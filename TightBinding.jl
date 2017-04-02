@@ -19,9 +19,10 @@ using Potentials.@pot
 import MatSciPy.potential_energy
 import Potentials.evaluate, Potentials.evaluate_d
 
+
 export AbstractTBModel, SimpleFunction
 export TBModel, FermiDiracSmearing, potential_energy, forces, evaluate,
-   potential_energy_d, site_energy, band_structure_all, band_structure_near_eF
+   potential_energy_d, site_energy, band_structure_all, band_structure_near_eF, site_forces
 
 
 
