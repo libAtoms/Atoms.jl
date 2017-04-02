@@ -5,13 +5,13 @@
 ### Summary
 
 Julia wrappers for the [matscipy](https://github.com/libAtoms/matscipy) library.
-At the moment, only a neighbourlist is implemented. 
+At the moment, only a neighbourlist is implemented.
 
 * `MatSciPy.neighbour_list` : the raw neighbour_list wrapper
 * `MatSciPy.NeighbourList` : some boiler plate code, including an iterator
 
 `neighbourlist` currently uses the Python interface and therefore requires
-ASE. 
+ASE.
 
 TODO: rewrite so that ASE is no longer required!
 
@@ -19,10 +19,10 @@ The `MatSciPy` module also implements some simple "one-line" calculators that
 exploit the specific structure of the data returned by `neighbour_list`. These
 are very well optimised. As a rough guidance, for the `PairCalculator`, with
 `LennardJonesPotential` potential and `ShiftCutoff`, the cost of one force
-assembly is about 2/3 the cost of one `neighbour_list` call, whereas an 
+assembly is about 2/3 the cost of one `neighbour_list` call, whereas an
 optimised implementation would be only about 1/10th of a `neighbourlist` call.
-With the `SWCutoff` the cost of one force assembly is about twice the cost of 
-one `neighbour_list` call. 
+With the `SWCutoff` the cost of one force assembly is about twice the cost of
+one `neighbour_list` call.
 """
 module MatSciPy
 
@@ -36,7 +36,7 @@ importall AtomsInterface
 # # import some faster exponential for fast potential assembly
 # try
 #     import AppleAccelerate
-#     function _fast_exponential(Lc, Rc, r) 
+#     function _fast_exponential(Lc, Rc, r)
 #         c2 = Rc-r
 #         AppleAccelerate.rec!(c2, c2)
 #         c2 = Lc * c2
@@ -54,18 +54,19 @@ export cutoff
 export simple_binsum
 
 
+
 """
-`neighbour_list(atoms::ASEAtoms, quantities::AbstractString, cutoff::Float64) 
+`neighbour_list(atoms::ASEAtoms, quantities::AbstractString, cutoff::Float64)
     -> tuple`
 
-The elements of the tuple depend on the content of `quantities`. E.g., 
-```{julia}
+The elements of the tuple depend on the content of `quantities`. E.g.,
+```
     i, j, D, d = neighbours(at, "ijDd", 5.0)
 ```
-will return a vector `i` of indices, a vector of neighbour indices `j`, 
+will return a vector `i` of indices, a vector of neighbour indices `j`,
 the distance vectors in `D` and the scalar distances in `d`.
 
-**Warning: ** to minimise overhead, this does *not* convert the relative
+**Warning:** to minimise overhead, this does *not* convert the relative
 distance vectors `D` from the ASE N x 3 to the Atoms.jl 3 x N convention!
 """
 function neighbour_list(atoms::ASEAtoms, quantities::AbstractString,
@@ -100,7 +101,7 @@ end
 
 
 """
-A basic wrapper around the `neighbour_list` builder. 
+A basic wrapper around the `neighbour_list` builder.
 
 Initialise an empty neighbourlist using
 ```
@@ -179,14 +180,14 @@ function update!(nlist::NeighbourList, at::ASEAtoms)
             return nlist
         end
     end
-    
+
     # we decided that we need to rebuild
     nlist.X = Xnew
     nlist.i, nlist.j, nlist.r, R, S =
         neighbour_list(at, nlist.cutoff+nlist.skin)
     nlist.R = R'
     nlist.S = S'
-    
+
     return nlist
 end
 
@@ -221,8 +222,8 @@ Bonds(at::ASEAtoms, rcut) = Bonds(NeighbourList(at, rcut))
 start(b::Bonds) = 1::Int
 done(b::Bonds, s::Int) = (s == length(b.nlist.i)+1)
 next(b::Bonds, s::Int) = (b.nlist.i[s], b.nlist.j[s], b.nlist.r[s],
-                          copy(slice(b.nlist.R,:,s)),
-                          copy(slice(b.nlist.S,:,s)) ), s+1
+                          copy(view(b.nlist.R,:,s)),
+                          copy(view(b.nlist.S,:,s)) ), s+1
 
 
 """`Sites`: helper to define an iterator over sites. Usage:
@@ -272,9 +273,9 @@ function next(s::Sites, state::AtomIteratorState)
     ret_tuple = (state.n,
                  s.neiglist.j[m0+1:state.m],
                  s.neiglist.r[m0+1:state.m],
-                 slice(s.neiglist.R,:,m0+1:state.m),
-                 slice(s.neiglist.S,:,m0+1:state.m))
-    return ret_tuple, state    
+                 view(s.neiglist.R,:,m0+1:state.m),
+                 view(s.neiglist.S,:,m0+1:state.m))
+    return ret_tuple, state
     # TODO: in the above loop we could also remove all those neighbours
     #       which are outside the cutoff?
 end
@@ -287,7 +288,7 @@ end
 ###########################################################################
 
 
-"""`simple_binsum` : this is a placeholder for a more general function, 
+"""`simple_binsum` : this is a placeholder for a more general function,
 `binsum`, which still needs to be written! Here, it is assumed that
 `size(A, 1) = 3`, and  only summation along the second dimension is allowed.
 """
@@ -374,7 +375,7 @@ end
 
 
 # ###########################################################################
-# ## Some Calculators Optimised for use with MatSciPy.NeighbourList 
+# ## Some Calculators Optimised for use with MatSciPy.NeighbourList
 # ###########################################################################
 
 
@@ -415,7 +416,7 @@ end
 #             G[3,i[n]] = G[3,i[n]] + t[n] * R[n,3]
 #         end end
 #     end
-    
+
 #     ret = ()
 #     for c in quantities
 #         if c == 'E'
@@ -434,8 +435,8 @@ end
 # `lennardjones(at::ASEAtoms, nlist::NeighbourList;
 #                       r0=1.0, e0=1.0, Rc=2.7, Lc=1.0, quantities="EG")`
 
-# A fast LJ assembly which exploits the specific structure of the 
-#  `MatSciPy.NeighbourList` to use  `@simd`, `@inbounds`, `@fastmath` macros 
+# A fast LJ assembly which exploits the specific structure of the
+#  `MatSciPy.NeighbourList` to use  `@simd`, `@inbounds`, `@fastmath` macros
 # and the `AppleAccalerate` package.
 
 # **This has not yet been tested for correctness!**
@@ -454,8 +455,8 @@ end
 
 #     # c2 = exp(Lc ./ (Rc-r))
 #     c2 = _fast_exponential(Lc, Rc, r)
-    
-#     @fastmath @inbounds @simd for n = 1:length(t) 
+
+#     @fastmath @inbounds @simd for n = 1:length(t)
 #         # c2[n] = exp( Lc / (Rc-r[n]) )
 #         c1[n] = (1.0 / (1.0 + c2[n]))  * (r[n] >= Rc_)
 #         t[n] = r0 / r[n]
@@ -475,9 +476,9 @@ end
 #             G[1,i[n]] = G[1,i[n]] + t[n] * R[n,1]
 #             G[2,i[n]] = G[2,i[n]] + t[n] * R[n,2]
 #             G[3,i[n]] = G[3,i[n]] + t[n] * R[n,3]
-#         end 
+#         end
 #     end
-    
+
 #     ret = ()
 #     for c in quantities
 #         if c == 'E'

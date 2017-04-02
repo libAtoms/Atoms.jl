@@ -15,12 +15,15 @@ using AtomsInterface
 importall AtomsInterface
 
 using Potentials, ASE, MatSciPy, Prototypes, SparseTools
+using Potentials.@pot
 import MatSciPy.potential_energy
 import Potentials.evaluate, Potentials.evaluate_d
 
 export AbstractTBModel, SimpleFunction
 export TBModel, FermiDiracSmearing, potential_energy, forces, evaluate,
-potential_energy_d, site_energy, band_structure_all, band_structure_near_eF
+   potential_energy_d, site_energy, band_structure_all, band_structure_near_eF
+
+
 
 
 abstract AbstractTBModel <: AbstractCalculator
@@ -570,8 +573,8 @@ function forces_k(X::Matrix{Float64}, tbm::TBModel, nlist, k::Vector{Float64})
     df = tbm.smearing(epsn, tbm.eF) + epsn .* (@D tbm.smearing(epsn, tbm.eF))
 
     # precompute some products
-    const C_df_Ct = (C * (df' .* C)')::Matrix{Complex{Float64}}
-    const C_dfepsn_Ct = (C * ((df.*epsn)' .* C)')::Matrix{Complex{Float64}}
+    const C_df_Ct = (C * (df' .* C)')   # ::Matrix{Complex{Float64}}
+    const C_dfepsn_Ct = (C * ((df.*epsn)' .* C)')  # ::Matrix{Complex{Float64}}
 
     # allocate forces
     const frc = zeros(Complex{Float64}, 3, size(X,2))
@@ -705,8 +708,8 @@ function site_energy(l::Integer, atm::ASEAtoms, tbm::TBModel)
 		I = indexblock(l, tbm)
 		for j = 1:tbm.norbitals
 			# the first component of the following line should be conjugate
-			Es += weight[n] * r_sum(real(f .* slice(C, I[j], :) .* slice(MC, I[j], :)))
-			# Es += weight[n] * r_sum( f .* (slice(C, I[j], :) .* slice(MC, I[j], :)) )
+			Es += weight[n] * r_sum(real(f .* view(C, I[j], :) .* view(MC, I[j], :)))
+			# Es += weight[n] * r_sum( f .* (view(C, I[j], :) .* view(MC, I[j], :)) )
 		end
 	end
 
@@ -841,8 +844,8 @@ function site_forces_k(idx::Array{Int,1}, X::Matrix{Float64},
 				# sum over all eigenpairs
 		    	for s = 1:Nelc
     	    	    for d = 1:3
-            	  		dEs[d, n] -= beta[n] * f[s] * sum( C[In, s] .* ( - slice(dM_nm, d, :, :) * C[Im, s] ) ) * eikr
-              			dEs[d, m] -= beta[n] * f[s] * sum( C[In, s] .* ( slice(dM_nm, d, :, :) * C[Im, s] ) ) * eikr
+            	  		dEs[d, n] -= beta[n] * f[s] * sum( C[In, s] .* ( - view(dM_nm, d, :, :) * C[Im, s] ) ) * eikr
+              			dEs[d, m] -= beta[n] * f[s] * sum( C[In, s] .* ( view(dM_nm, d, :, :) * C[Im, s] ) ) * eikr
 		            end		# loop for d
 				end 	# loop for s
 			end		# loop for neighbour i_n
@@ -921,13 +924,13 @@ function d_eigenstate_k(s::Int, tbm::TBModel, X::Matrix{Float64}, nlist, Nneig::
 			for d = 1:3
 				md = d + 3*(m-1)
 				nd = d + 3*(n-1)
-				g_s_n[md, In] += ( slice(dH_nn, d, :, :, i_n) * C[In, s] )'
-				g_s_n[nd, In] -= ( slice(dH_nn, d, :, :, i_n) * C[In, s] )'
+				g_s_n[md, In] += ( view(dH_nn, d, :, :, i_n) * C[In, s] )'
+				g_s_n[nd, In] -= ( view(dH_nn, d, :, :, i_n) * C[In, s] )'
 
-                g_s_n[md, In] += ( slice(dH_nm, d, :, :) * C[Im, s] )' * eikr
-       	        g_s_n[nd, In] -= ( slice(dH_nm, d, :, :) * C[Im, s] )' * eikr
-                f_s_n[md, In] += ( slice(dM_nm, d, :, :) * C[Im, s] )' * eikr
-   	            f_s_n[nd, In] -= ( slice(dM_nm, d, :, :) * C[Im, s] )' * eikr
+                g_s_n[md, In] += ( view(dH_nm, d, :, :) * C[Im, s] )' * eikr
+       	        g_s_n[nd, In] -= ( view(dH_nm, d, :, :) * C[Im, s] )' * eikr
+                f_s_n[md, In] += ( view(dM_nm, d, :, :) * C[Im, s] )' * eikr
+   	            f_s_n[nd, In] -= ( view(dM_nm, d, :, :) * C[Im, s] )' * eikr
 			end		# loop for dimension
 
 		end		# loop for neighbours
@@ -1120,35 +1123,35 @@ function hessian_k(X::Matrix{Float64}, tbm::TBModel, nlist, Nneig, k::Vector{Flo
 						# from H_{nm,n} and H_{nm,m} to E_{,nk}, E_{,kn}, E_{,mk}, E_{,km}
 						for l = 1 : Natm
 							eps_s_mn[s, d1, n, d2, l] += (
-								 C[In, s]' * ( - slice(dH_nm, d1, :, :)
-								 + epsn[s] * slice(dM_nm, d1, :, :)
+								 C[In, s]' * ( - view(dH_nm, d1, :, :)
+								 + epsn[s] * view(dM_nm, d1, :, :)
                                	              ) * psi_s_n[d2, l, Im][:]
 								 + C[In, s]' * (
-								 eps_s_n[d2, l] * slice(dM_nm, d1, :, :)
+								 eps_s_n[d2, l] * view(dM_nm, d1, :, :)
                                               ) * C[Im,s]
 								 )[1] * eikr
 							eps_s_mn[s, d1, l, d2, n] += (
-								 C[In, s]' * ( - slice(dH_nm, d2, :, :)
-								 + epsn[s] * slice(dM_nm, d2, :, :)
+								 C[In, s]' * ( - view(dH_nm, d2, :, :)
+								 + epsn[s] * view(dM_nm, d2, :, :)
                                	              ) * psi_s_n[d1, l, Im][:]
 								 + C[In, s]' * (
-								 eps_s_n[d1, l] * slice(dM_nm, d2, :, :)
+								 eps_s_n[d1, l] * view(dM_nm, d2, :, :)
                                               ) * C[Im,s]
 								 )[1] * eikr
 							eps_s_mn[s, d1, m, d2, l] += (
-								 C[In, s]' * ( slice(dH_nm, d1, :, :)
-								 - epsn[s] * slice(dM_nm, d1, :, :)
+								 C[In, s]' * ( view(dH_nm, d1, :, :)
+								 - epsn[s] * view(dM_nm, d1, :, :)
                                	              ) * psi_s_n[d2, l, Im][:]
 								 - C[In, s]' * (
-								 eps_s_n[d2, l] * slice(dM_nm, d1, :, :)
+								 eps_s_n[d2, l] * view(dM_nm, d1, :, :)
                                               ) * C[Im,s]
 								 )[1] * eikr
 							eps_s_mn[s, d1, l, d2, m] += (
-								 C[In, s]' * ( slice(dH_nm, d2, :, :)
-								 - epsn[s] * slice(dM_nm, d2, :, :)
+								 C[In, s]' * ( view(dH_nm, d2, :, :)
+								 - epsn[s] * view(dM_nm, d2, :, :)
                                	              ) * psi_s_n[d1, l, Im][:]
 								 - C[In, s]' * (
-								 eps_s_n[d1, l] * slice(dM_nm, d2, :, :)
+								 eps_s_n[d1, l] * view(dM_nm, d2, :, :)
                                               ) * C[Im,s]
 								 )[1] * eikr
 						end	# loop for atom l
@@ -1156,20 +1159,20 @@ function hessian_k(X::Matrix{Float64}, tbm::TBModel, nlist, Nneig, k::Vector{Flo
 						# contributions from hopping terms
 						# 4 parts: from H_{nm,nn}, H_{nm,mm}, H_{nm,mn}, H_{nm,nm}
 						eps_s_mn[s, d1, n, d2, n] += (
-								 C[In, s]' * ( slice(d2H_nm, d1, d2, :, :)
-								 - epsn[s] * slice(d2M_nm, d1, d2, :, :) ) * C[Im,s]
+								 C[In, s]' * ( view(d2H_nm, d1, d2, :, :)
+								 - epsn[s] * view(d2M_nm, d1, d2, :, :) ) * C[Im,s]
 								 )[1] * eikr
 						eps_s_mn[s, d1, m, d2, m] += (
-								 C[In, s]' * ( slice(d2H_nm, d1, d2, :, :)
-								 - epsn[s] * slice(d2M_nm, d1, d2, :, :) ) * C[Im,s]
+								 C[In, s]' * ( view(d2H_nm, d1, d2, :, :)
+								 - epsn[s] * view(d2M_nm, d1, d2, :, :) ) * C[Im,s]
 								 )[1] * eikr
 						eps_s_mn[s, d1, m, d2, n] += (
-								 C[In, s]' * ( - slice(d2H_nm, d1, d2, :, :)
-								 + epsn[s] * slice(d2M_nm, d1, d2, :, :) ) * C[Im,s]
+								 C[In, s]' * ( - view(d2H_nm, d1, d2, :, :)
+								 + epsn[s] * view(d2M_nm, d1, d2, :, :) ) * C[Im,s]
 								 )[1] * eikr
 						eps_s_mn[s, d1, n, d2, m] += (
-								 C[In, s]' * ( - slice(d2H_nm, d1, d2, :, :)
-								 + epsn[s] * slice(d2M_nm, d1, d2, :, :) ) * C[Im,s]
+								 C[In, s]' * ( - view(d2H_nm, d1, d2, :, :)
+								 + epsn[s] * view(d2M_nm, d1, d2, :, :) ) * C[Im,s]
 								 )[1] * eikr
 
 						# contributions from onsite terms
@@ -1179,16 +1182,16 @@ function hessian_k(X::Matrix{Float64}, tbm::TBModel, nlist, Nneig, k::Vector{Flo
 						# from H_{nn,n} and H_{nn,m} to E_{,nk}, E_{,kn}, E_{,mk}, E_{,km}
 						for l = 1 : Natm
 							eps_s_mn[s, d1, n, d2, l] += (
-								 C[In, s]' * ( - slice(dH_nn, m1, :) .* psi_s_n[d2, l, In][:] )
+								 C[In, s]' * ( - view(dH_nn, m1, :) .* psi_s_n[d2, l, In][:] )
 								 )[1]
 							eps_s_mn[s, d1, l, d2, n] += (
-								 C[In, s]' * ( - slice(dH_nn, m2, :) .* psi_s_n[d1, l, In][:] )
+								 C[In, s]' * ( - view(dH_nn, m2, :) .* psi_s_n[d1, l, In][:] )
 								 )[1]
 							eps_s_mn[s, d1, m, d2, l] += (
-								 C[In, s]' * ( slice(dH_nn, m1, :) .* psi_s_n[d2, l, In][:] )
+								 C[In, s]' * ( view(dH_nn, m1, :) .* psi_s_n[d2, l, In][:] )
 								 )[1]
 							eps_s_mn[s, d1, l, d2, m] += (
-								 C[In, s]' * ( slice(dH_nn, m2, :) .* psi_s_n[d1, l, In][:] )
+								 C[In, s]' * ( view(dH_nn, m2, :) .* psi_s_n[d1, l, In][:] )
 								 )[1]
 						end	# loop for atom l
 
@@ -1411,51 +1414,51 @@ function d3E_k(X::Matrix{Float64}, tbm::TBModel, nlist, Nneig, k::Vector{Float64
 								for q = 1 : Natm
 									# 1. npq
 									D3E[d1, n, d2, p, d3, q] +=  feps3[s] * (
-											eps_s_mn[s, d2, p, d3, q] * C[In, s]' * slice(dM_nm, d1, :, :) * C[Im, s]
-											+ 2.0 * eps_s_n[d2, p] * C[In, s]' * slice(dM_nm, d1, :, :) * psi_s_n[d3, q, Im][:]
-											+ 2.0 * eps_s_n[d3, q] * C[In, s]' * slice(dM_nm, d1, :, :) * psi_s_n[d2, p, Im][:]
-											+ 2.0 * psi_s_n[d2, p, In][:]' * ( - slice(dH_nm, d1, :, :)
-								 			+ epsn[s] * slice(dM_nm, d1, :, :) ) * psi_s_n[d3, q, Im][:]
+											eps_s_mn[s, d2, p, d3, q] * C[In, s]' * view(dM_nm, d1, :, :) * C[Im, s]
+											+ 2.0 * eps_s_n[d2, p] * C[In, s]' * view(dM_nm, d1, :, :) * psi_s_n[d3, q, Im][:]
+											+ 2.0 * eps_s_n[d3, q] * C[In, s]' * view(dM_nm, d1, :, :) * psi_s_n[d2, p, Im][:]
+											+ 2.0 * psi_s_n[d2, p, In][:]' * ( - view(dH_nm, d1, :, :)
+								 			+ epsn[s] * view(dM_nm, d1, :, :) ) * psi_s_n[d3, q, Im][:]
 											)[1] * eikr
 									# 2. mpq
 									D3E[d1, m, d2, p, d3, q] +=  feps3[s] * (
-											- eps_s_mn[s, d2, p, d3, q] * C[In, s]' * slice(dM_nm, d1, :, :) * C[Im, s]
-											- 2.0 * eps_s_n[d2, p] * C[In, s]' * slice(dM_nm, d1, :, :) * psi_s_n[d3, q, Im][:]
-											- 2.0 * eps_s_n[d3, q] * C[In, s]' * slice(dM_nm, d1, :, :) * psi_s_n[d2, p, Im][:]
-											+ 2.0 * psi_s_n[d2, p, In][:]' * ( slice(dH_nm, d1, :, :)
-								 			- epsn[s] * slice(dM_nm, d1, :, :) ) * psi_s_n[d3, q, Im][:]
+											- eps_s_mn[s, d2, p, d3, q] * C[In, s]' * view(dM_nm, d1, :, :) * C[Im, s]
+											- 2.0 * eps_s_n[d2, p] * C[In, s]' * view(dM_nm, d1, :, :) * psi_s_n[d3, q, Im][:]
+											- 2.0 * eps_s_n[d3, q] * C[In, s]' * view(dM_nm, d1, :, :) * psi_s_n[d2, p, Im][:]
+											+ 2.0 * psi_s_n[d2, p, In][:]' * ( view(dH_nm, d1, :, :)
+								 			- epsn[s] * view(dM_nm, d1, :, :) ) * psi_s_n[d3, q, Im][:]
 											)[1] * eikr
 									# 3. pnq
 									D3E[d1, p, d2, n, d3, q] +=  feps3[s] * (
-											eps_s_mn[s, d1, p, d3, q] * C[In, s]' * slice(dM_nm, d2, :, :) * C[Im, s]
-											+ 2.0 * eps_s_n[d1, p] * C[In, s]' * slice(dM_nm, d2, :, :) * psi_s_n[d3, q, Im][:]
-											+ 2.0 * eps_s_n[d3, q] * C[In, s]' * slice(dM_nm, d2, :, :) * psi_s_n[d1, p, Im][:]
-											+ 2.0 * psi_s_n[d1, p, In][:]' * ( - slice(dH_nm, d2, :, :)
-								 			+ epsn[s] * slice(dM_nm, d2, :, :) ) * psi_s_n[d3, q, Im][:]
+											eps_s_mn[s, d1, p, d3, q] * C[In, s]' * view(dM_nm, d2, :, :) * C[Im, s]
+											+ 2.0 * eps_s_n[d1, p] * C[In, s]' * view(dM_nm, d2, :, :) * psi_s_n[d3, q, Im][:]
+											+ 2.0 * eps_s_n[d3, q] * C[In, s]' * view(dM_nm, d2, :, :) * psi_s_n[d1, p, Im][:]
+											+ 2.0 * psi_s_n[d1, p, In][:]' * ( - view(dH_nm, d2, :, :)
+								 			+ epsn[s] * view(dM_nm, d2, :, :) ) * psi_s_n[d3, q, Im][:]
 											)[1] * eikr
 									# 4. pmq
 									D3E[d1, p, d2, m, d3, q] +=  feps3[s] * (
-											- eps_s_mn[s, d1, p, d3, q] * C[In, s]' * slice(dM_nm, d2, :, :) * C[Im, s]
-											- 2.0 * eps_s_n[d1, p] * C[In, s]' * slice(dM_nm, d2, :, :) * psi_s_n[d3, q, Im][:]
-											- 2.0 * eps_s_n[d3, q] * C[In, s]' * slice(dM_nm, d2, :, :) * psi_s_n[d1, p, Im][:]
-											+ 2.0 * psi_s_n[d1, p, In][:]' * ( slice(dH_nm, d2, :, :)
-								 			- epsn[s] * slice(dM_nm, d2, :, :) ) * psi_s_n[d3, q, Im][:]
+											- eps_s_mn[s, d1, p, d3, q] * C[In, s]' * view(dM_nm, d2, :, :) * C[Im, s]
+											- 2.0 * eps_s_n[d1, p] * C[In, s]' * view(dM_nm, d2, :, :) * psi_s_n[d3, q, Im][:]
+											- 2.0 * eps_s_n[d3, q] * C[In, s]' * view(dM_nm, d2, :, :) * psi_s_n[d1, p, Im][:]
+											+ 2.0 * psi_s_n[d1, p, In][:]' * ( view(dH_nm, d2, :, :)
+								 			- epsn[s] * view(dM_nm, d2, :, :) ) * psi_s_n[d3, q, Im][:]
 											)[1] * eikr
 									# 5. pqn
 									D3E[d1, p, d2, q, d3, n] +=  feps3[s] * (
-											eps_s_mn[s, d1, p, d2, q] * C[In, s]' * slice(dM_nm, d3, :, :) * C[Im, s]
-											+ 2.0 * eps_s_n[d1, p] * C[In, s]' * slice(dM_nm, d3, :, :) * psi_s_n[d2, q, Im][:]
-											+ 2.0 * eps_s_n[d2, q] * C[In, s]' * slice(dM_nm, d3, :, :) * psi_s_n[d1, p, Im][:]
-											+ 2.0 * psi_s_n[d1, p, In][:]' * ( - slice(dH_nm, d3, :, :)
-								 			+ epsn[s] * slice(dM_nm, d3, :, :) ) * psi_s_n[d2, q, Im][:]
+											eps_s_mn[s, d1, p, d2, q] * C[In, s]' * view(dM_nm, d3, :, :) * C[Im, s]
+											+ 2.0 * eps_s_n[d1, p] * C[In, s]' * view(dM_nm, d3, :, :) * psi_s_n[d2, q, Im][:]
+											+ 2.0 * eps_s_n[d2, q] * C[In, s]' * view(dM_nm, d3, :, :) * psi_s_n[d1, p, Im][:]
+											+ 2.0 * psi_s_n[d1, p, In][:]' * ( - view(dH_nm, d3, :, :)
+								 			+ epsn[s] * view(dM_nm, d3, :, :) ) * psi_s_n[d2, q, Im][:]
 											)[1] * eikr
 									# 6. pqm
 									D3E[d1, p, d2, q, d3, m] +=  feps3[s] * (
-											- eps_s_mn[s, d1, p, d2, q] * C[In, s]' * slice(dM_nm, d3, :, :) * C[Im, s]
-											- 2.0 * eps_s_n[d1, p] * C[In, s]' * slice(dM_nm, d3, :, :) * psi_s_n[d2, q, Im][:]
-											- 2.0 * eps_s_n[d2, q] * C[In, s]' * slice(dM_nm, d3, :, :) * psi_s_n[d1, p, Im][:]
-											+ 2.0 * psi_s_n[d1, p, In][:]' * ( slice(dH_nm, d3, :, :)
-								 			- epsn[s] * slice(dM_nm, d3, :, :) ) * psi_s_n[d2, q, Im][:]
+											- eps_s_mn[s, d1, p, d2, q] * C[In, s]' * view(dM_nm, d3, :, :) * C[Im, s]
+											- 2.0 * eps_s_n[d1, p] * C[In, s]' * view(dM_nm, d3, :, :) * psi_s_n[d2, q, Im][:]
+											- 2.0 * eps_s_n[d2, q] * C[In, s]' * view(dM_nm, d3, :, :) * psi_s_n[d1, p, Im][:]
+											+ 2.0 * psi_s_n[d1, p, In][:]' * ( view(dH_nm, d3, :, :)
+								 			- epsn[s] * view(dM_nm, d3, :, :) ) * psi_s_n[d2, q, Im][:]
 											)[1] * eikr
 								end 	# loop for atom p
 							end 	# loop for atom q
@@ -1466,75 +1469,75 @@ function d3E_k(X::Matrix{Float64}, tbm::TBModel, nlist, Nneig, k::Vector{Float64
 							for l = 1 : Natm
 								# 1. nnl
 								D3E[d1, n, d2, n, d3, l] +=  feps3[s] * (
-										- eps_s_n[d3, l] * C[In, s]' * slice(d2M_nm, d1, d2, :, :) * C[Im, s]
-										+ 2.0 * C[In, s]' * ( slice(d2H_nm, d1, d2, :, :)
-										- epsn[s] * slice(d2M_nm, d1, d2, :, :) ) * psi_s_n[d3, l, Im][:]
+										- eps_s_n[d3, l] * C[In, s]' * view(d2M_nm, d1, d2, :, :) * C[Im, s]
+										+ 2.0 * C[In, s]' * ( view(d2H_nm, d1, d2, :, :)
+										- epsn[s] * view(d2M_nm, d1, d2, :, :) ) * psi_s_n[d3, l, Im][:]
 										)[1] * eikr
 								# 2. mml
 								D3E[d1, m, d2, m, d3, l] +=  feps3[s] * (
-										- eps_s_n[d3, l] * C[In, s]' * slice(d2M_nm, d1, d2, :, :) * C[Im, s]
-										+ 2.0 * C[In, s]' * ( slice(d2H_nm, d1, d2, :, :)
-										- epsn[s] * slice(d2M_nm, d1, d2, :, :) ) * psi_s_n[d3, l, Im][:]
+										- eps_s_n[d3, l] * C[In, s]' * view(d2M_nm, d1, d2, :, :) * C[Im, s]
+										+ 2.0 * C[In, s]' * ( view(d2H_nm, d1, d2, :, :)
+										- epsn[s] * view(d2M_nm, d1, d2, :, :) ) * psi_s_n[d3, l, Im][:]
 										)[1] * eikr
 								# 3. nml
 								D3E[d1, n, d2, m, d3, l] +=  feps3[s] * (
-										eps_s_n[d3, l] * C[In, s]' * slice(d2M_nm, d1, d2, :, :) * C[Im, s]
-										+ 2.0 * C[In, s]' * ( - slice(d2H_nm, d1, d2, :, :)
-										+ epsn[s] * slice(d2M_nm, d1, d2, :, :) ) * psi_s_n[d3, l, Im][:]
+										eps_s_n[d3, l] * C[In, s]' * view(d2M_nm, d1, d2, :, :) * C[Im, s]
+										+ 2.0 * C[In, s]' * ( - view(d2H_nm, d1, d2, :, :)
+										+ epsn[s] * view(d2M_nm, d1, d2, :, :) ) * psi_s_n[d3, l, Im][:]
 										)[1] * eikr
 								# 4. mnl
 								D3E[d1, m, d2, n, d3, l] +=  feps3[s] * (
-										eps_s_n[d3, l] * C[In, s]' * slice(d2M_nm, d1, d2, :, :) * C[Im, s]
-										+ 2.0 * C[In, s]' * ( - slice(d2H_nm, d1, d2, :, :)
-										+ epsn[s] * slice(d2M_nm, d1, d2, :, :) ) * psi_s_n[d3, l, Im][:]
+										eps_s_n[d3, l] * C[In, s]' * view(d2M_nm, d1, d2, :, :) * C[Im, s]
+										+ 2.0 * C[In, s]' * ( - view(d2H_nm, d1, d2, :, :)
+										+ epsn[s] * view(d2M_nm, d1, d2, :, :) ) * psi_s_n[d3, l, Im][:]
 										)[1] * eikr
 								# 5. nln
 								D3E[d1, n, d2, l, d3, n] +=  feps3[s] * (
-										- eps_s_n[d2, l] * C[In, s]' * slice(d2M_nm, d1, d3, :, :) * C[Im, s]
-										+ 2.0 * C[In, s]' * ( slice(d2H_nm, d1, d3, :, :)
-										- epsn[s] * slice(d2M_nm, d1, d3, :, :) ) * psi_s_n[d2, l, Im][:]
+										- eps_s_n[d2, l] * C[In, s]' * view(d2M_nm, d1, d3, :, :) * C[Im, s]
+										+ 2.0 * C[In, s]' * ( view(d2H_nm, d1, d3, :, :)
+										- epsn[s] * view(d2M_nm, d1, d3, :, :) ) * psi_s_n[d2, l, Im][:]
 										)[1] * eikr
 								# 6. mlm
 								D3E[d1, m, d2, l, d3, m] +=  feps3[s] * (
-										- eps_s_n[d2, l] * C[In, s]' * slice(d2M_nm, d1, d3, :, :) * C[Im, s]
-										+ 2.0 * C[In, s]' * ( slice(d2H_nm, d1, d3, :, :)
-										- epsn[s] * slice(d2M_nm, d1, d3, :, :) ) * psi_s_n[d2, l, Im][:]
+										- eps_s_n[d2, l] * C[In, s]' * view(d2M_nm, d1, d3, :, :) * C[Im, s]
+										+ 2.0 * C[In, s]' * ( view(d2H_nm, d1, d3, :, :)
+										- epsn[s] * view(d2M_nm, d1, d3, :, :) ) * psi_s_n[d2, l, Im][:]
 										)[1] * eikr
 								# 7. nlm
 								D3E[d1, n, d2, l, d3, m] +=  feps3[s] * (
-										eps_s_n[d2, l] * C[In, s]' * slice(d2M_nm, d1, d3, :, :) * C[Im, s]
-										+ 2.0 * C[In, s]' * ( - slice(d2H_nm, d1, d3, :, :)
-										+ epsn[s] * slice(d2M_nm, d1, d3, :, :) ) * psi_s_n[d2, l, Im][:]
+										eps_s_n[d2, l] * C[In, s]' * view(d2M_nm, d1, d3, :, :) * C[Im, s]
+										+ 2.0 * C[In, s]' * ( - view(d2H_nm, d1, d3, :, :)
+										+ epsn[s] * view(d2M_nm, d1, d3, :, :) ) * psi_s_n[d2, l, Im][:]
 										)[1] * eikr
 								# 8. mln
 								D3E[d1, m, d2, l, d3, n] +=  feps3[s] * (
-										eps_s_n[d2, l] * C[In, s]' * slice(d2M_nm, d1, d3, :, :) * C[Im, s]
-										+ 2.0 * C[In, s]' * ( - slice(d2H_nm, d1, d3, :, :)
-										+ epsn[s] * slice(d2M_nm, d1, d3, :, :) ) * psi_s_n[d2, l, Im][:]
+										eps_s_n[d2, l] * C[In, s]' * view(d2M_nm, d1, d3, :, :) * C[Im, s]
+										+ 2.0 * C[In, s]' * ( - view(d2H_nm, d1, d3, :, :)
+										+ epsn[s] * view(d2M_nm, d1, d3, :, :) ) * psi_s_n[d2, l, Im][:]
 										)[1] * eikr
 								# 9. lnn
 								D3E[d1, l, d2, n, d3, n] +=  feps3[s] * (
-										- eps_s_n[d1, l] * C[In, s]' * slice(d2M_nm, d2, d3, :, :) * C[Im, s]
-										+ 2.0 * C[In, s]' * ( slice(d2H_nm, d2, d3, :, :)
-										- epsn[s] * slice(d2M_nm, d2, d3, :, :) ) * psi_s_n[d1, l, Im][:]
+										- eps_s_n[d1, l] * C[In, s]' * view(d2M_nm, d2, d3, :, :) * C[Im, s]
+										+ 2.0 * C[In, s]' * ( view(d2H_nm, d2, d3, :, :)
+										- epsn[s] * view(d2M_nm, d2, d3, :, :) ) * psi_s_n[d1, l, Im][:]
 										)[1] * eikr
 								# 10. lmm
 								D3E[d1, l, d2, m, d3, m] +=  feps3[s] * (
-										- eps_s_n[d1, l] * C[In, s]' * slice(d2M_nm, d2, d3, :, :) * C[Im, s]
-										+ 2.0 * C[In, s]' * ( slice(d2H_nm, d2, d3, :, :)
-										- epsn[s] * slice(d2M_nm, d2, d3, :, :) ) * psi_s_n[d1, l, Im][:]
+										- eps_s_n[d1, l] * C[In, s]' * view(d2M_nm, d2, d3, :, :) * C[Im, s]
+										+ 2.0 * C[In, s]' * ( view(d2H_nm, d2, d3, :, :)
+										- epsn[s] * view(d2M_nm, d2, d3, :, :) ) * psi_s_n[d1, l, Im][:]
 										)[1] * eikr
 								# 11. lnm
 								D3E[d1, l, d2, n, d3, m] +=  feps3[s] * (
-										eps_s_n[d1, l] * C[In, s]' * slice(d2M_nm, d2, d3, :, :) * C[Im, s]
-										+ 2.0 * C[In, s]' * ( - slice(d2H_nm, d2, d3, :, :)
-										+ epsn[s] * slice(d2M_nm, d2, d3, :, :) ) * psi_s_n[d1, l, Im][:]
+										eps_s_n[d1, l] * C[In, s]' * view(d2M_nm, d2, d3, :, :) * C[Im, s]
+										+ 2.0 * C[In, s]' * ( - view(d2H_nm, d2, d3, :, :)
+										+ epsn[s] * view(d2M_nm, d2, d3, :, :) ) * psi_s_n[d1, l, Im][:]
 										)[1] * eikr
 								# 12. lmn
 								D3E[d1, l, d2, m, d3, n] +=  feps3[s] * (
-										eps_s_n[d1, l] * C[In, s]' * slice(d2M_nm, d2, d3, :, :) * C[Im, s]
-										+ 2.0 * C[In, s]' * ( - slice(d2H_nm, d2, d3, :, :)
-										+ epsn[s] * slice(d2M_nm, d2, d3, :, :) ) * psi_s_n[d1, l, Im][:]
+										eps_s_n[d1, l] * C[In, s]' * view(d2M_nm, d2, d3, :, :) * C[Im, s]
+										+ 2.0 * C[In, s]' * ( - view(d2H_nm, d2, d3, :, :)
+										+ epsn[s] * view(d2M_nm, d2, d3, :, :) ) * psi_s_n[d1, l, Im][:]
 										)[1] * eikr
 							end 	# loop for atom l
 
@@ -1543,43 +1546,43 @@ function d3E_k(X::Matrix{Float64}, tbm::TBModel, nlist, Nneig, k::Vector{Float64
 							# where ijk can only be  nnn, nnm, nmn, nmm, mmm, mmn, mnm, mnn
 							# 1. nnn
 							D3E[d1, n, d2, n, d3, n] +=  feps3[s] * (
-								 	C[In, s]' * ( - slice(d3H_nm, d1, d2, d3, :, :)
-									+ epsn[s] * slice(d3M_nm, d1, d2, d3, :, :)	) * C[Im, s]
+								 	C[In, s]' * ( - view(d3H_nm, d1, d2, d3, :, :)
+									+ epsn[s] * view(d3M_nm, d1, d2, d3, :, :)	) * C[Im, s]
 									)[1] * eikr
 							# 2. nnm
 							D3E[d1, n, d2, n, d3, m] +=  feps3[s] * (
-								 	C[In, s]' * ( slice(d3H_nm, d1, d2, d3, :, :)
-									- epsn[s] * slice(d3M_nm, d1, d2, d3, :, :)	) * C[Im, s]
+								 	C[In, s]' * ( view(d3H_nm, d1, d2, d3, :, :)
+									- epsn[s] * view(d3M_nm, d1, d2, d3, :, :)	) * C[Im, s]
 								 	)[1] * eikr
 							# 3. nmn
 							D3E[d1, n, d2, m, d3, n] +=  feps3[s] * (
-								 	C[In, s]' * ( slice(d3H_nm, d1, d2, d3, :, :)
-									- epsn[s] * slice(d3M_nm, d1, d2, d3, :, :)	) * C[Im, s]
+								 	C[In, s]' * ( view(d3H_nm, d1, d2, d3, :, :)
+									- epsn[s] * view(d3M_nm, d1, d2, d3, :, :)	) * C[Im, s]
 									)[1] * eikr
 							# 4. nmm
 							D3E[d1, n, d2, m, d3, m] +=  feps3[s] * (
-								 	C[In, s]' * ( - slice(d3H_nm, d1, d2, d3, :, :)
-									+ epsn[s] * slice(d3M_nm, d1, d2, d3, :, :)	) * C[Im, s]
+								 	C[In, s]' * ( - view(d3H_nm, d1, d2, d3, :, :)
+									+ epsn[s] * view(d3M_nm, d1, d2, d3, :, :)	) * C[Im, s]
 									)[1] * eikr
 							# 5. mmm
 							D3E[d1, m, d2, m, d3, m] +=  feps3[s] * (
-								 	C[In, s]' * ( slice(d3H_nm, d1, d2, d3, :, :)
-									- epsn[s] * slice(d3M_nm, d1, d2, d3, :, :)	) * C[Im, s]
+								 	C[In, s]' * ( view(d3H_nm, d1, d2, d3, :, :)
+									- epsn[s] * view(d3M_nm, d1, d2, d3, :, :)	) * C[Im, s]
 									)[1] * eikr
 							# 6. mmn
 							D3E[d1, m, d2, m, d3, n] +=  feps3[s] * (
-								 	C[In, s]' * ( - slice(d3H_nm, d1, d2, d3, :, :)
-									+ epsn[s] * slice(d3M_nm, d1, d2, d3, :, :)	) * C[Im, s]
+								 	C[In, s]' * ( - view(d3H_nm, d1, d2, d3, :, :)
+									+ epsn[s] * view(d3M_nm, d1, d2, d3, :, :)	) * C[Im, s]
 									)[1] * eikr
 							# 7. mnm
 							D3E[d1, m, d2, n, d3, m] +=  feps3[s] * (
-								 	C[In, s]' * ( - slice(d3H_nm, d1, d2, d3, :, :)
-									+ epsn[s] * slice(d3M_nm, d1, d2, d3, :, :)	) * C[Im, s]
+								 	C[In, s]' * ( - view(d3H_nm, d1, d2, d3, :, :)
+									+ epsn[s] * view(d3M_nm, d1, d2, d3, :, :)	) * C[Im, s]
 									)[1] * eikr
 							# 8. mnn
 							D3E[d1, m, d2, n, d3, n] +=  feps3[s] * (
-								 	C[In, s]' * ( slice(d3H_nm, d1, d2, d3, :, :)
-									- epsn[s] * slice(d3M_nm, d1, d2, d3, :, :)	) * C[Im, s]
+								 	C[In, s]' * ( view(d3H_nm, d1, d2, d3, :, :)
+									- epsn[s] * view(d3M_nm, d1, d2, d3, :, :)	) * C[Im, s]
 									)[1] * eikr
 
 

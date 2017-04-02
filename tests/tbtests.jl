@@ -2,7 +2,7 @@
 push!(LOAD_PATH, ".", "..")
 
 using TestAtoms
-using TightBinding
+include("../TightBinding.jl")
 using Potentials
 using ASE
 
@@ -42,4 +42,3 @@ df = TightBinding.forces(at, tbm)[:]
     @printf(" %2d | %1.7e \n", p, norm(dfh + df, Inf))
     end
 println("-----------------------------")
-

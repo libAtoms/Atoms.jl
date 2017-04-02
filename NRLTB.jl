@@ -20,7 +20,7 @@ export NRLTBModel
 export evaluate, evaluate_d, grad, evaluate_d!, grad!, evaluate!
 export evaluate_fd!, evaluate_fd2!, evaluate_fd3!
 
-
+using Potentials.@pot
 
 
 """`NRLParams`: collects all the parameters for NRL tight-binding model.
@@ -942,6 +942,10 @@ end
 
 ## ============================ help functions using ForwardDiff ==============================
 
+
+
+
+
 """
 generates 1st order derivatives of local hamiltonian and overlap for hopping terms or overlap.
 The size of returnned local matrices are  dim × Norbit × Norbit,
@@ -955,7 +959,6 @@ hh : constructed via mat_local_h or mat_local_m
 **Output**
 dh : R^{ dim × norb × norb}
 """
-
 function hop_local_fd!(R::Vector{Float64}, elem::NRLParams, dh::Array{Float64,3})
     # dim = 3
     # dh = zeros(dim, Norb, Norb)

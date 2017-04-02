@@ -10,6 +10,7 @@ export ToyTBModel
 using Potentials, TightBinding, ASE, MatSciPy
 import Potentials.evaluate, Potentials.evaluate_d
 export evaluate, evaluate_d
+using Potentials.@pot 
 
 @pot type ToyTBOverlap <: PairPotential
 end
