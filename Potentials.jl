@@ -424,10 +424,11 @@ MorsePotential(A::Float64; e0=1.0, r0=1.0) = MorsePotential(e0, A, r0)
     embed::SimpleFunction
 end
 
-"embedding function for the Gupts potential"
-type GuptaEmbed <: SimpleFunction
+
+@pot type GuptaEmbed <: SimpleFunction
     xi
 end
+"embedding function for the Gupts potential" GuptaEmbed
 @inline evaluate(p::GuptaEmbed, r) = p.xi * sqrt(r)
 @inline evaluate_d(p::GuptaEmbed, r) = 0.5*p.xi ./ sqrt(r)
 

@@ -40,7 +40,7 @@ export get_cell, cell, set_pbc!, iscubic, assert_cubic, delete_atom!
 
 using PyCall
 @pyimport ase
-@pyimport ase.lattice as lattice
+@pyimport ase.build as ase_build
 @pyimport ase.neighborlist as ase_neiglist
 # @pyimport ase.build as build
 
@@ -177,7 +177,7 @@ repeat(a::ASEAtoms, n::NTuple{3, Int64}) =
 Generates a unit cell of the element described by `name`
 """
 bulk(name::AbstractString; kwargs...) =
-    convert(ASEAtoms, lattice.bulk(name; kwargs...))
+    convert(ASEAtoms, ase_build.bulk(name; kwargs...))
 
 
 ############################################################

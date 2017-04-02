@@ -11,7 +11,7 @@ using Potentials, TightBinding, ASE, MatSciPy
 import Potentials.evaluate, Potentials.evaluate_d
 export evaluate, evaluate_d
 
-type ToyTBOverlap <: PairPotential
+@pot type ToyTBOverlap <: PairPotential
 end
 # return 0.0 if two parameters are passed (only for off-diagional terms)
 evaluate(p::ToyTBOverlap, r, R) = 0.0
@@ -25,7 +25,7 @@ evaluate(p::ToyTBOverlap, r) = (r == 0.0 ? 1.0 : error("ToyTBOverlap(r) : r must
 #    r0
 #end
 #@inline morse_exp(p::ToyHop, r) = exp(-p.A * (r/p.r0 - 1.0))
-#@inline function evaluate(p::ToyHop, r) 
+#@inline function evaluate(p::ToyHop, r)
 #    e = morse_exp(p, r); return e .* (e - 2.0)
 #end
 #@inline function  evaluate_d(p::ToyHop, r)
@@ -35,9 +35,9 @@ evaluate(p::ToyTBOverlap, r) = (r == 0.0 ? 1.0 : error("ToyTBOverlap(r) : r must
 
 
 
-"""`ToyTBModel`: constructs a simple 1-orbital tight binding model. 
+"""`ToyTBModel`: constructs a simple 1-orbital tight binding model.
 It doesn't model anything but can be used for quick tests. The hopping function
-is given by 
+is given by
 
   h(r) = MORSE(r; alpha, r0) * η(r; rcut)
 
@@ -51,9 +51,9 @@ is given by
 """
 function ToyTBModel(;alpha=2.0, r0=1.0, rcut=2.5, beta=1.0, fixed_eF=true,
                     eF = 0.0, hfd=1e-6)
-    
+
     hop = SWCutoff(MorsePotential(1.0, alpha, r0), rcut, 1.0)
-    
+
     #hop = MorsePotential(1.0, alpha, r0)
     return TBModel(hop = hop,
                    overlap = ToyTBOverlap(),
@@ -98,12 +98,12 @@ end
 #         # dH = sparse(i, j, dhop .* (R[a,j] - R[a,i])' ./ r, Natm, Natm)
 #         dH = sparse(i, j, dhop .* (-R[:,a]) ./ r, Natm, Natm)
 #         dH_x_C = dH * C
-#         for s = 1:Natm 
+#         for s = 1:Natm
 #             frc[a,:] += 2.0 * df[s] .* C[:,s]' .* dH_x_C[:,s]'
-#         end 
-#     end 
+#         end
+#     end
 #     return frc
-# end 
+# end
 
 
 end

@@ -111,14 +111,15 @@ indexblock(n::Integer, tbm::TBModel) =
 
 
 
+@pot type FermiDiracSmearing <: SmearingFunction
+    beta
+    eF
+end
 """`FermiDiracSmearing`:
 
 f(e) = ( 1 + exp( beta (e - eF) ) )^{-1}
 """
-type FermiDiracSmearing <: SmearingFunction
-    beta
-    eF
-end
+FermiDiracSmearing
 FermiDiracSmearing(beta;eF=0.0) = FermiDiracSmearing(beta, eF)
 
 # FD distribution and its derivative. both are vectorised implementations
@@ -150,11 +151,7 @@ function set_eF!(fd::FermiDiracSmearing, eF)
 end
 
 
-"""`ZeroTemperature`:
-
-TODO
-"""
-type ZeroTemperature <: SmearingFunction
+@pot type ZeroTemperature <: SmearingFunction
     eF
 end
 
