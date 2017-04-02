@@ -4,7 +4,8 @@ push!(LOAD_PATH, ".", "..")
 using ASE
 using MatSciPy
 using PyCall
-using TightBinding
+# using TightBinding
+include("../TightBinding.jl")
 import NRLTB
 @pyimport ase
 
@@ -15,7 +16,8 @@ import NRLTB
 # 3 -> C215
 # 4 -> C511
 # 5 -> C999
-ncell = 5
+ncell = 2
+atvacstr = "C63"
 # number of k-points each directiom
 nkpoint = 4
 
@@ -35,7 +37,7 @@ tbm = NRLTB.NRLTBModel(elem = NRLTB.C_sp)
 set_pbc!(at, [true, true, true])
 tbm.nkpoints = (nkpoint, nkpoint, nkpoint)
 
-K, E = TightBinding.band_structure(at, tbm)
+K, E = TightBinding.band_structure_all(at, tbm)
 
 # take a very low temperature to approximate the fermi level at 0 temperature
 tbm.fixed_eF = false
@@ -60,7 +62,7 @@ Y = zeros(3, natom-1)
 Y = X[:,1:natom-1]
 
 
-at_vac = ASEAtoms( ase.Atoms("C999") )
+at_vac = ASEAtoms( ase.Atoms(atvacstr) )
 set_cell!(at_vac, cell(at))
 set_positions!(at_vac, Y)
 set_pbc!(at_vac, [true, true, true])
@@ -69,7 +71,7 @@ set_pbc!(at_vac, [true, true, true])
 X_vac = positions(at_vac)
 @printf(" number of atoms (with vacancy) = %2d \n", length(at_vac))
 
-K, E = TightBinding.band_structure(at_vac, tbm)
+K, E = TightBinding.band_structure_all(at_vac, tbm)
 
 # take a very low temperature to approximate the fermi level at 0 temperature
 # tbm.fixed_eF = false
@@ -85,4 +87,3 @@ for k = 1:n
 end
 
 @printf(" Fermi level (with vacancy) = %1.7e \n\n", EF)
-

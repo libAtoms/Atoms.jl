@@ -586,8 +586,8 @@ function forces_k(X::Matrix{Float64}, tbm::TBModel, nlist, k::Vector{Float64})
 
     # loop through all atoms, to compute the force on atm[n]
     for (n, neigs, r, R) in Sites(nlist)
-        neigs::Vector{Int}
-        R::Matrix{Float64}
+        local neigs::Vector{Int}
+        local R::Matrix{Float64}
         # compute the block of indices for the orbitals belonging to n
         In = indexblock(n, tbm)
 
