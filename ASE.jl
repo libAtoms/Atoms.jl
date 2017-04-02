@@ -9,7 +9,7 @@
 #
 #   * rcut in ASE denotes spheres of overlap?!?!? i.e. it is in effect
 #     half of the cut-off of the potential?
-#      
+#
 
 
 """
@@ -41,7 +41,7 @@ export get_cell, cell, set_pbc!, iscubic, assert_cubic, delete_atom!
 using PyCall
 @pyimport ase
 @pyimport ase.lattice as lattice
-@pyimport ase.calculators.neighborlist as ase_neiglist
+@pyimport ase.neighborlist as ase_neiglist
 # @pyimport ase.build as build
 
 #################################################################
@@ -53,7 +53,7 @@ using PyCall
 
 Julia wrapper for the ASE `Atoms` class
 
-If `at` is of type `ASEAtoms` and `nlist` of type `ASENeighbourList` then 
+If `at` is of type `ASEAtoms` and `nlist` of type `ASENeighbourList` then
 iterate over atoms using the following syntax
 ```
 for (n, inds, s, r) in (at, nlist)
@@ -85,7 +85,7 @@ set_array!(a::ASEAtoms, name, value) = a.po[:set_array(name, value)]
 
 """`get_positions(at)` returns a copy of the atom positions array
 
-*NOTE:* ASE stores an N x 3, while the `Atoms.jl` convention is to use 
+*NOTE:* ASE stores an N x 3, while the `Atoms.jl` convention is to use
 3 x N arrays. The downside is that, for now, get_positions() creates 3 copies:
  first, within python, then from python to julia, then in the transpose.
 
@@ -96,7 +96,7 @@ positions(a::ASEAtoms) = a.po[:get_positions]()'
 
 """`set_positions!(at::ASEAtoms, p::Array{Float64, 2})`
 
-Sets the position array in `at`; Note that `p` must be 3 x N 
+Sets the position array in `at`; Note that `p` must be 3 x N
 (Atoms.jl convention), and is automatically converted to the N x 3 array
 that ASE expects.
 """
@@ -140,7 +140,7 @@ get_stress(a::ASEAtoms) = a.po[:get_stress]()
 
 iscubic(at::ASEAtoms) = isdiag(cell(at))
 assert_cubic(at::ASEAtoms) =
-    isdiag(cell(at)) ? nothing : error(""""ASEAtoms cell is not cubic as 
+    isdiag(cell(at)) ? nothing : error(""""ASEAtoms cell is not cubic as
                                        asserted: cell = $(cell(at))""")
 
 
@@ -167,7 +167,7 @@ For example,
     atm = repeat( bulk("C"), (3,3,3) )
 ```
 creates 3 x 3 x 3 unit cells of carbon.
-""" 
+"""
 repeat(a::ASEAtoms, n::NTuple{3, Int64}) =
     convert(ASEAtoms, a.po[:repeat](n))
 
@@ -202,7 +202,7 @@ _get_positions_ref_(atm::ASEAtoms) =
 """### type ASENeighborList <: AbstractNeighborList
 
 This makes available the functionality of the ASE neighborlist implementation.
-The neighborlist itself is actually stored in `ASEAtoms.po`, but 
+The neighborlist itself is actually stored in `ASEAtoms.po`, but
 attaching and `ASENeighborList` will indicate this.
 
 #### Keyword arguments:
@@ -254,7 +254,7 @@ update!(nlist::ASENeighborList, atm::ASEAtoms) =  nlist.po[:update](atm.po)
 
 
 """`build!(nlist::ASENeighborList, atm::ASEAtoms)`
-    
+
 force rebuild of the neighborlist
 """
 build!(nlist::ASENeighborList, atm::ASEAtoms) = nlist.po[:build](atm.po)
@@ -274,7 +274,7 @@ atoms can then calculated like this: (python code)
 If `get_neighbors(a)` gives atom b as a neighbor,
     then `get_neighbors(b)` will not return a as a neighbor, unless
     `bothways=True` was used.
-""" 
+"""
 function get_neighbors(n::Integer, neiglist::ASENeighborList)
     indices, offset = neiglist.po[:get_neighbors](n-1)
     indices .+= 1
@@ -295,8 +295,8 @@ neighbors = get_neighbors
  * `s`: scalar distances of neighbours
  * `r`: relative positions of neighbours (vectorial dist)
 
-This is a convenience function that does some of the work of constructing the 
-neighborhood. This is probably fairly inefficient to use since it has 
+This is a convenience function that does some of the work of constructing the
+neighborhood. This is probably fairly inefficient to use since it has
 to construct a `PyArray` object for the positions every time it is called.
 Instead, use the iterator. Problem is, this is not much faster, because
 the PyCall conversion overhead is so horrendous.
@@ -359,12 +359,12 @@ end
 
 ################### some useful hacks ###################
 #
-#  
+#
 
 export rnn
 
 """
-`rnn(species)` : 
+`rnn(species)` :
 computes the nearest-neighbour distance for a given species
 """
 function rnn(species)
