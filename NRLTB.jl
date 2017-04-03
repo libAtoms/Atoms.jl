@@ -11,7 +11,7 @@ const _hh_ = zeros(10)
 ###      The NRL tight-binding model                                ###
 #######################################################################
 
-using Potentials, TightBinding, ASE, MatSciPy
+using Potentials, ASE, MatSciPy
 import Potentials.evaluate, Potentials.evaluate_d, Potentials.grad,
        Potentials.evaluate_d!, Potentials.evaluate!,
        Potentials.evaluate_fd!, Potentials.evaluate_fd2!, Potentials.evaluate_fd3!
@@ -19,6 +19,8 @@ import ForwardDiff
 export NRLTBModel
 export evaluate, evaluate_d, grad, evaluate_d!, grad!, evaluate!
 export evaluate_fd!, evaluate_fd2!, evaluate_fd3!
+
+using ..FermiDiracSmearing, ..TBModel
 
 using Potentials.@pot
 
