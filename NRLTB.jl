@@ -25,7 +25,8 @@ using ..FermiDiracSmearing, ..TBModel
 using Potentials.@pot
 
 
-"""`NRLParams`: collects all the parameters for NRL tight-binding model.
+"""
+`NRLParams`: collects all the parameters for NRL tight-binding model.
 Generally, different element has different parameters.
 """
 type NRLParams
@@ -232,20 +233,20 @@ end
 #    return fcut
 #end
 
-function cutoff_NRL(r, Rc, lc; Mc=10.0)
+function cutoff_NRL(r, Rc, lc; Mc=5.0)
     fcut = (1.0 ./ (1.0 + exp( (r-Rc) / lc + Mc )) - 1.0 ./ (1.0 + exp(Mc))) .* (r .<= Rc)
     return fcut
 end
 
 # the following function is only used in ForwardDiff and "r" can not be a vector
 # since the operator ".<=" can not be regonized by ForwardDiff
-function cutoff_NRL_fd(r, Rc, lc; Mc=10.0)
+function cutoff_NRL_fd(r, Rc, lc; Mc=5.0)
     fcut = (1.0 / (1.0 + exp( (r-Rc) / lc + Mc )) - 1.0 / (1.0 + exp(Mc))) * (r <= Rc)
     return fcut
 end
 
 # first order derivative
-function d_cutoff_NRL(r, Rc, lc; Mc=10.0)
+function d_cutoff_NRL(r, Rc, lc; Mc=5.0)
     temp = exp( (r-Rc) ./ lc + Mc )
     d_fcut = - 1.0 ./ ( 1.0 + temp ).^2 .* temp ./ lc .* (r .<= Rc)
     return d_fcut
