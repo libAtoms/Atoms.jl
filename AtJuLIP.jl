@@ -43,8 +43,11 @@ JTB.hamiltonian(tbm::JuLIPTB, atm::JuLIP.AbstractAtoms, args...) =
 
 
 function JuLIPTB(s::Symbol; nkpoints = (0,0,0))
-   if s == :Si
+   if s == :Si || s == :Si4
       tbm = ATB.NRLTB.NRLTBModel(elem = ATB.NRLTB.Si_sp, nkpoints = (0,0,0))
+      return JuLIPTB(tbm)
+   elseif s == :Si9
+      tbm = ATB.NRLTB.NRLTBModel(elem = ATB.NRLTB.Si_spd, nkpoints = (0,0,0))
       return JuLIPTB(tbm)
    end
 
